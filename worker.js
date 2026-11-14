@@ -23,6 +23,11 @@ self.onmessage = (ev) => {
     // validity: source/receiver must be inside the air volume (between floor and ceiling, inside walls)
     const inside = p => SA.pointInPoly([p[0], p[1]], mesh.inner) && p[2] > 0.05 && p[2] < mesh.zc(p[0], p[1]) - 0.05;
     if (!inside(src) || !inside(rcv)) throw new Error(!inside(src) ? 'SRC_OUTSIDE' : 'RCV_OUTSIDE');
+    // v4: inside furniture / a column / a partition / under a balcony slab -> refuse instead of returning silent nonsense
+    if (SA.insideSolid(mesh, bvh, src)) throw new Error('SRC_IN_SOLID');
+    if (SA.insideSolid(mesh, bvh, rcv)) throw new Error('RCV_IN_SOLID');
+    // v4: coincident source and listener divided by zero distance -> NaN everywhere
+    if (Math.hypot(src[0] - rcv[0], src[1] - rcv[1], src[2] - rcv[2]) < 0.3) throw new Error('SRC_RCV_TOO_CLOSE');
     prog('early', 0);
     const isr = SA.imageSources(mesh, bvh, M, src, rcv, q.isOrder == null ? 2 : q.isOrder, env);
     const dif = SA.edgeDiffraction(mesh, bvh, M, src, rcv, env);

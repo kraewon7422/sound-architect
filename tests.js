@@ -400,6 +400,62 @@ test('lf: 저음 분석 peaks = analytic room modes of a 7.2×5.1×3.0 m box (ea
   return 'peaks ' + pk.map(f => f.toFixed(1)).join(', ') + ' Hz';
 });
 
+// ---------------- v4: shapes, furniture, robustness ----------------
+function lostRays(spec, src, rcv) {
+  const mesh = SA.buildMesh(spec), bvh = SA.buildBVH(mesh.tris), M = SA.matArrays(mesh);
+  return { mesh, r: SA.rayTrace(mesh, bvh, M, src, rcv, { T: 20, RH: 50 }, { rays: 3000, tMax: 0.6 }) };
+}
+test('v4: curved wall = circular arc with the stated sagitta, bulging outward; round room area = πr²', () => {
+  uni('u4', 0.2, 0.3); const s = SA.shoebox(6, 4, 3, { walls: 'u4', floor: 'u4', ceiling: 'u4' }); s.loop[0].bulge = 0.3;
+  const m = SA.buildMesh(s); const ymin = Math.min(...m.inner.map(p => p[1]));
+  ok(Math.abs(ymin - (-0.3 * 3 + 0.1)) < 0.03, 'inner lowest point ' + ymin); // sagitta 0.9 m below the chord, minus half the wall
+  const r = 8, b = Math.tan(Math.PI / 8); const W = (x, y) => ({ x: x + 8.5, y: y + 8.5, thick: 0.3, mat: 'u4', bulge: b });
+  const m2 = SA.buildMesh({ loop: [[r, 0], [0, r], [-r, 0], [0, -r]].map(([x, y]) => W(x, y)), ceiling: { type: 'flat', h: 6, mat: 'u4' }, floorMat: 'u4' });
+  const A = SA.polyArea(m2.inner), ref = Math.PI * (r - 0.15) ** 2; ok(A > 0 && Math.abs(A - ref) / ref < 0.02, 'area ' + A);
+  return `lowest inner point ${ymin.toFixed(2)} m (expected −0.80), round room ${A.toFixed(1)} vs ${ref.toFixed(1)} m²`;
+});
+test('v4: closed meshes with curved walls, curved partition, hex/oct columns, furniture, vault and dome (rays lost < 0.2%)', () => {
+  uni('u4', 0.2, 0.3); const out = [];
+  const cases = {
+    arc: s => { s.loop[0].bulge = 0.3; s.loop[2].bulge = -0.2; },
+    partition: s => { s.partitions = [{ a: [1, 1.5], b: [5, 1.5], thick: 0.15, h: 0, mat: 'u4', bulge: -0.5, openings: [] }]; },
+    columns: s => { s.columns = [{ x: 1, y: 1, r: 0.3, shape: 'hex', mat: 'u4' }, { x: 5, y: 1, r: 0.3, shape: 'oct', mat: 'u4' }]; },
+    furniture: s => { s.furniture = Object.keys(SA.FURNITURE).map((t, i) => ({ type: t, x: 0.8 + (i % 6) * 0.9, y: i < 6 ? 0.9 : 3.3, rot: i * 20, w: 0.6, d: 0.4, mat: 'u4' })); },
+    vault: s => { s.ceiling = { type: 'vault', h: 3, rise: 1.5, axis: 1, mat: 'u4' }; },
+    dome: s => { s.ceiling = { type: 'dome', h: 3, rise: 1.5, mat: 'u4' }; },
+  };
+  for (const [k, f] of Object.entries(cases)) {
+    const s = SA.shoebox(6, 4, 3, { walls: 'u4', floor: 'u4', ceiling: 'u4' }); f(s);
+    const { r } = lostRays(s, [3, 2.4, 1.6], [4.5, 2.6, 1.6]); ok(r.lost < 0.002, `${k}: lost ${r.lost}`); out.push(`${k} ${(r.lost * 100).toFixed(2)}%`);
+  }
+  return out.join(', ');
+});
+test('v4: zero-length wall (duplicate vertex) and a window at the very corner no longer leak', () => {
+  uni('u4', 0.2, 0.3); SA.defMat('g200', { a: Array(8).fill(0.05), s: Array(8).fill(0.05), tl: Array(8).fill(200) });
+  const s = SA.shoebox(4, 3, 3, { walls: 'u4', floor: 'u4', ceiling: 'u4' }); s.loop.splice(1, 0, Object.assign({}, s.loop[1]));
+  const a = lostRays(s, [1, 1, 1.5], [3, 2, 1.5]).r.lost;
+  const s2 = SA.shoebox(4, 3, 3, { walls: 'u4', floor: 'u4', ceiling: 'u4' }); s2.loop[1].openings = [{ t0: 0, t1: 0.4, z0: 0.9, z1: 2.2, kind: 'window', mat: 'g200' }];
+  const b = lostRays(s2, [1, 1, 1.5], [3, 2, 1.5]).r.lost;
+  ok(a < 0.002 && b < 0.002, `dup vertex lost ${a}, corner window lost ${b}`);
+  return `lost: duplicate vertex ${(a * 100).toFixed(2)}% (was 17.5%), corner window ${(b * 100).toFixed(2)}% (was 16%)`;
+});
+test('v4: insideSolid finds points inside furniture, columns, partitions and platforms (and not in the air)', () => {
+  uni('u4', 0.2, 0.3); const s = SA.shoebox(6, 4, 3, { walls: 'u4', floor: 'u4', ceiling: 'u4' });
+  s.platforms = [{ poly: [[1, 1], [2, 1], [2, 2], [1, 2]], h: 0.75, mat: 'u4' }]; s.columns = [{ x: 4, y: 3, r: 0.3 }];
+  s.furniture = [{ type: 'table', x: 4.5, y: 1 }, { type: 'sofa', x: 1.5, y: 3.2 }]; s.partitions = [{ a: [3, 0.5], b: [3, 3.5], thick: 0.2, h: 0, mat: 'u4', openings: [] }];
+  const m = SA.buildMesh(s), b = SA.buildBVH(m.tris);
+  const inS = [[1.5, 1.5, 0.5], [4, 3, 1], [4.5, 1, 0.73], [3, 2, 1], [1.5, 3.2, 0.3]], air = [[1.5, 1.5, 1.2], [4.6, 3, 1], [4.5, 1, 0.5], [3.3, 2, 1], [5, 2, 1.5], [1.5, 3.2, 1.2]];
+  inS.forEach(p => ok(SA.insideSolid(m, b, p), 'should be inside: ' + p)); air.forEach(p => ok(!SA.insideSolid(m, b, p), 'should be air: ' + p));
+  return `${inS.length} inside, ${air.length} in the air — all correct`;
+});
+test('v4: furniture volume and parts follow size and rotation', () => {
+  const f = { type: 'bookshelf', x: 2, y: 2, rot: 90, w: 2, d: 0.5, h: 2 }; const P = SA.furnitureParts(f);
+  ok(P.length === 1 && Math.abs(Math.abs(SA.polyArea(P[0].poly)) - 1) < 1e-9, 'area'); const xs = P[0].poly.map(p => p[0]);
+  ok(Math.abs(Math.max(...xs) - Math.min(...xs) - 0.5) < 1e-9, 'rotated 90°: x-extent = depth');
+  const s = SA.shoebox(6, 4, 3, {}); const v0 = SA.buildMesh(s).volume; s.furniture = [f]; const v1 = SA.buildMesh(s).volume;
+  ok(Math.abs(v0 - v1 - 2) < 1e-6, 'volume drop ' + (v0 - v1)); return `volume −${(v0 - v1).toFixed(2)} m³ (2 × 0.5 × 2)`;
+});
+
 const pass = results.filter(r => r[0]).length;
 results.forEach(([p, n, info, ms]) => console.log(`${p ? 'PASS' : 'FAIL'}  ${n}  — ${info}  [${ms} ms]`));
 console.log(`\nTests ${pass}/${results.length}`);

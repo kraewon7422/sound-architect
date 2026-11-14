@@ -60,7 +60,9 @@
        loop: [{x,y,thick,mat,matOut,bulge,openings:[{t0,t1,z0,z1,kind,mat}]}...]  closed outer boundary, vertex i -> segment i..i+1
        ceiling: {type:'flat'|'shed'|'gable'|'vault', h, rise, axis:0|1, mat}, floorMat,
        partitions: [{a:[x,y], b:[x,y], thick, h, mat, openings:[]}],
-       columns:[{x,y,r,shape:'round'|'square',mat}], platforms:[{poly:[[x,y]..], h, z, mat, under:bool}],
+       columns:[{x,y,r,shape:'round'|'square'|'hex'|'oct',mat}], platforms:[{poly:[[x,y]..], h, z, mat, under:bool}],
+       furniture:[{type, x, y, rot(deg), w, d, h, mat}]  (v4: catalogue items, see FURNITURE; each expands to boxes)
+       partitions[i].bulge (v4): curved partition, same convention as loop walls (no openings on curved ones)
        balconies:[{poly, z, thick, mat}]
      } */
   function ceilingFn(spec, bb) {
@@ -75,6 +77,10 @@
         case 'shed': return H + rise * uc;
         case 'gable': return H + rise * (1 - Math.abs(2 * uc - 1));
         case 'vault': return H + rise * Math.sqrt(Math.max(0, 1 - Math.pow(2 * uc - 1, 2)));
+        case 'dome': { // v4: elliptical dome over the room's bounding box
+          const ex = 2 * ((x - bb.x0) / Math.max(bb.x1 - bb.x0, 1e-6)) - 1, ey = 2 * ((y - bb.y0) / Math.max(bb.y1 - bb.y0, 1e-6)) - 1;
+          return H + rise * Math.sqrt(Math.max(0, 1 - Math.min(1, ex * ex + ey * ey)));
+        }
         default: return H;
       }
     };
@@ -101,8 +107,8 @@
       const n = Math.max(4, Math.ceil(arcLen / 0.6));
       let prev = [A.x, A.y];
       for (let k = 1; k <= n; k++) {
-        const ang = a0 - theta * k / n;
-        const p = k === n ? [B.x, B.y] : [cx + Math.abs(r) * Math.cos(ang) * Math.sign(r), cy + Math.abs(r) * Math.sin(ang) * Math.sign(r)];
+        const ang = a0 + theta * k / n; // v4 fix: sweep from A toward B (the old sign went the wrong way round the circle)
+        const p = k === n ? [B.x, B.y] : [cx + Math.abs(r) * Math.cos(ang), cy + Math.abs(r) * Math.sin(ang)];
         segs.push({ a: prev, b: p, w: A, src: i, arc: true });
         prev = p;
       }
@@ -120,7 +126,9 @@
   function buildMesh(spec) {
     const tris = []; // {a,b,c (3d), n, mat, uv:[[u,v]x3], wall, edgeFree}
     const edges = []; // diffraction edges {p0,p1,n1,n2}
-    let loop = spec.loop.slice();
+    // v4: drop a vertex that sits on its neighbour (zero-length wall -> no inward normal -> the room leaked)
+    let loop = spec.loop.filter((w, i, L) => { const q = L[(i + 1) % L.length]; return L.length < 2 || Math.hypot(q.x - w.x, q.y - w.y) >= 0.01; });
+    if (loop.length < 3) throw new Error('FEW_VERTICES');
     if (polyArea(loop.map(w => [w.x, w.y])) < 0) { // make CCW; reverse keeps wall props on correct segment
       const r = []; const n = loop.length;
       for (let i = 0; i < n; i++) { const w = Object.assign({}, loop[(n - i) % n]); const prevW = loop[(n - i - 1 + n) % n]; Object.assign(w, { thick: prevW.thick, mat: prevW.mat, matOut: prevW.matOut, bulge: -(prevW.bulge || 0), openings: (prevW.openings || []).map(o => Object.assign({}, o, { t0: 1 - o.t1, t1: 1 - o.t0 })) }); r.push(w); }
@@ -131,6 +139,10 @@
     segs.forEach(s => { [s.a, s.b].forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.x1 = Math.max(bb.x1, p[0]); bb.y1 = Math.max(bb.y1, p[1]); }); });
     const zc = ceilingFn(spec, bb);
     const flatCeil = !spec.ceiling || spec.ceiling.type === 'flat' || !spec.ceiling.rise;
+    // v4: on curved ceilings (vault, dome) the ceiling mesh and the straight wall-top edges do not share every vertex, which
+    // left thin slits rays could escape through (1–6 % of rays). Walls now rise a little above the ceiling surface instead.
+    const curvedCeil = !flatCeil && (spec.ceiling.type === 'vault' || spec.ceiling.type === 'dome');
+    const zcWall = curvedCeil ? (x, y) => zc(x, y) + 0.15 : zc;
     // offset lines: inner (left of CCW direction) and outer
     const N = segs.length;
     const L = segs.map(s => {
@@ -208,13 +220,16 @@
       let holes = [];
       if (!s.arc && w.openings && w.openings.length) {
         const wl = Li.len;
-        holes = w.openings.map(op => ({ t0: op.t0 * wl, t1: op.t1 * wl, z0: op.z0, z1: op.z1, op }));
+        // v4: keep holes out of the mitred corner zones; a hole reaching into the next wall cut a tunnel to the outside
+        const lo = Math.max(tIn0, tOut0, 0) + 0.03, hi = Math.min(tIn1, tOut1, wl) - 0.03;
+        holes = w.openings.map(op => ({ t0: Math.max(op.t0 * wl, lo), t1: Math.min(op.t1 * wl, hi), z0: op.z0, z1: Math.min(op.z1, zc(o[0] + d[0] * (op.t0 + op.t1) / 2 * wl, o[1] + d[1] * (op.t0 + op.t1) / 2 * wl) - 0.05), op }))
+          .filter(h => h.t1 - h.t0 > 0.1 && h.z1 - h.z0 > 0.1);
         // an open hole in the outer boundary is a perfect absorber (α = 1) for the classic formulas
         holes.forEach(h => { if (!h.op.mat || h.op.mat === 'open') openArea += (h.t1 - h.t0) * (h.z1 - h.z0); });
       }
       const matIn = w.mat || 'plaster', matOut = 'exterior';
-      wallFace(o, d, nIn, Li.t, tIn0, tIn1, holes, matIn, 1, zc, { wall: i, side: 'in', src: s.src });
-      wallFace(o, d, nIn, -Li.t, tOut0, tOut1, holes, matOut, -1, zc, { wall: i, side: 'out', src: s.src, vis: 'facade' });
+      wallFace(o, d, nIn, Li.t, tIn0, tIn1, holes, matIn, 1, zcWall, { wall: i, side: 'in', src: s.src });
+      wallFace(o, d, nIn, -Li.t, tOut0, tOut1, holes, matOut, -1, zcWall, { wall: i, side: 'out', src: s.src, vis: 'facade' });
       // wall top cap (follows ceiling) — exterior
       holes.forEach(h => addOpening(o, d, nIn, Li.t, h, matIn, zc, i));
       // top cap between inner and outer face (faces up)
@@ -301,12 +316,27 @@
       }
     }
 
-    // --- partitions (free-standing interior walls): both faces + end caps + top cap if lower than ceiling
+    // --- partitions (free-standing interior walls): both faces + end caps + top cap if lower than ceiling.
+    // v4: a partition with a bulge is built as a chain of short straight pieces (caps only at the two real ends).
+    function partArc(a, b, bulge) {
+      if (Math.abs(bulge || 0) < 1e-3) return [a, b];
+      const dx = b[0] - a[0], dy = b[1] - a[1], ch = Math.hypot(dx, dy); if (ch < 1e-6) return [a, b];
+      const th = 4 * Math.atan(bulge), r = ch / (2 * Math.sin(th / 2)), nx = dy / ch, ny = -dx / ch, dd = r * Math.cos(th / 2);
+      const cx = (a[0] + b[0]) / 2 - nx * dd, cy = (a[1] + b[1]) / 2 - ny * dd, a0 = Math.atan2(a[1] - cy, a[0] - cx), R = Math.abs(r);
+      const n = Math.max(4, Math.min(24, Math.ceil(Math.abs(r * th) / 0.5))), pts = [];
+      // same parametrisation as the plan editor's arcPoints(), so the drawn and the computed partition coincide
+      for (let k = 0; k <= n; k++) { const an = a0 + th * k / n; pts.push(k === 0 ? a.slice() : k === n ? b.slice() : [cx + R * Math.cos(an), cy + R * Math.sin(an)]); }
+      return pts;
+    }
     (spec.partitions || []).forEach((pw, pi) => {
-      const a = pw.a, b = pw.b; const ln = Math.hypot(b[0] - a[0], b[1] - a[1]); if (ln < 0.05) return;
+      const pts = partArc(pw.a, pw.b, pw.bulge), curved = pts.length > 2;
+      for (let k = 0; k < pts.length - 1; k++) buildPart(pw, pi, pts[k], pts[k + 1], !curved, k === 0, k === pts.length - 2);
+    });
+    function buildPart(pw, pi, a, b, useHoles, capA, capB) {
+      const ln = Math.hypot(b[0] - a[0], b[1] - a[1]); if (ln < 0.02) return;
       const d = [(b[0] - a[0]) / ln, (b[1] - a[1]) / ln], nI = [-d[1], d[0]], t = (pw.thick || 0.15) / 2;
-      const top = (x, y) => Math.min(pw.h || 1e9, zc(x, y) );
-      const holes = (pw.openings || []).map(op => ({ t0: op.t0 * ln, t1: op.t1 * ln, z0: op.z0, z1: op.z1, op }));
+      const top = (x, y) => Math.min(pw.h || 1e9, zcWall(x, y));
+      const holes = !useHoles ? [] : (pw.openings || []).map(op => ({ t0: op.t0 * ln, t1: op.t1 * ln, z0: op.z0, z1: op.z1, op }));
       const mat = pw.mat || 'plaster', mat2 = pw.mat2 || mat;
       wallFace(a, d, nI, t, 0, ln, holes, mat, 1, top, { part: pi, side: 'L' });
       wallFace(a, d, nI, -t, 0, ln, holes, mat2, -1, top, { part: pi, side: 'R' });
@@ -321,7 +351,7 @@
         if (2 * t <= THIN) { const pm = P(tt, 0); addThinEdge([pm[0], pm[1], 0], [pm[0], pm[1], Math.min(z1, z2)], ni, mul(nd, -1)); }
         else { addEdge([p1[0], p1[1], 0], [p1[0], p1[1], z1], ni, nd); addEdge([p2[0], p2[1], 0], [p2[0], p2[1], z2], mul(ni, -1), nd); }
       };
-      cap(0, -1); cap(ln, 1);
+      if (capA) cap(0, -1); if (capB) cap(ln, 1);
       if (pw.h && pw.h < zc(a[0], a[1]) - 0.01) {
         const p1 = P(0, t), p2 = P(ln, t), p3 = P(ln, -t), p4 = P(0, -t), z = pw.h;
         quad([p4[0], p4[1], z], [p3[0], p3[1], z], [p2[0], p2[1], z], [p1[0], p1[1], z], mat, [[0, 0], [ln, 0], [ln, 2 * t], [0, 2 * t]], { part: pi, top: 1 });
@@ -331,18 +361,18 @@
           addEdge([p4[0], p4[1], z], [p3[0], p3[1], z], [-nI[0], -nI[1], 0], [0, 0, 1]);
         }
       }
-    });
+    }
 
     // --- columns
     (spec.columns || []).forEach((c, ci) => {
-      const sides = c.shape === 'square' ? 4 : 16, r = c.r || 0.25, mat = c.mat || 'concrete';
+      const sides = COL_SIDES[c.shape] || 16, r = c.r || 0.25, mat = c.mat || 'concrete', faceted = c.shape && c.shape !== 'round';
       const top = zc(c.x, c.y) + 0.02;
       const pts = []; for (let k = 0; k < sides; k++) { const an = (k + (c.shape === 'square' ? 0.5 : 0)) * 2 * Math.PI / sides; pts.push([c.x + r * Math.cos(an) * (c.shape === 'square' ? Math.SQRT2 : 1), c.y + r * Math.sin(an) * (c.shape === 'square' ? Math.SQRT2 : 1)]); }
       let u = 0;
       for (let k = 0; k < sides; k++) {
         const p = pts[k], q = pts[(k + 1) % sides]; const sl = Math.hypot(q[0] - p[0], q[1] - p[1]);
         quad([p[0], p[1], 0], [q[0], q[1], 0], [q[0], q[1], top], [p[0], p[1], top], mat, [[u, 0], [u + sl, 0], [u + sl, top], [u, top]], { column: ci });
-        if (c.shape === 'square') {
+        if (faceted) {
           const prev = pts[(k - 1 + sides) % sides];
           const n1 = norm([q[1] - p[1], p[0] - q[0], 0]), n0 = norm([p[1] - prev[1], prev[0] - p[0], 0]);
           addEdge([p[0], p[1], 0], [p[0], p[1], top - 0.02], n0, n1);
@@ -353,6 +383,8 @@
 
     // --- platforms / stage / risers / furniture blocks (extruded polygons)
     (spec.platforms || []).forEach((pl, k) => extrude(pl.poly, pl.z || 0, (pl.z || 0) + (pl.h || 0.5), pl.mat || 'wood_panel', pl.topMat || pl.mat || 'wood_floor', { plat: k }, true));
+    // --- furniture (v4): catalogue items expanded into boxes; raised boxes (table tops, panels on stands) get an underside
+    (spec.furniture || []).forEach((f, k) => furnitureParts(f).forEach(q => extrude(q.poly, q.z0, q.z1, q.mat, q.top, { furn: k }, q.z0 < 0.01)));
     // --- balconies (slabs in mid air)
     (spec.balconies || []).forEach((bl, k) => extrude(bl.poly, bl.z - (bl.thick || 0.3), bl.z, bl.mat || 'concrete', bl.topMat || 'carpet', { balc: k }, false));
 
@@ -386,7 +418,8 @@
     }
     let vol = fArea * (hN ? hSum / hN : 3);
     (spec.platforms || []).forEach(pl => { vol -= Math.abs(polyArea(pl.poly)) * (pl.h || 0.5); });
-    (spec.columns || []).forEach(c => { vol -= (c.shape === 'square' ? 4 * (c.r || 0.25) ** 2 * 2 : Math.PI * (c.r || 0.25) ** 2) * (hN ? hSum / hN : 3); });
+    (spec.columns || []).forEach(c => { vol -= columnArea(c) * (hN ? hSum / hN : 3); });
+    (spec.furniture || []).forEach(f => furnitureParts(f).forEach(q => { vol -= Math.abs(polyArea(q.poly)) * (q.z1 - q.z0); }));
     let zmax = 0; tris.forEach(t => { zmax = Math.max(zmax, t.a[2], t.b[2], t.c[2]); });
     return { tris, edges, inner, outer, bb: Object.assign(bb, { z0: 0, z1: zmax }), volume: Math.max(vol, 1), floorArea: fArea, zc, openArea };
   }
@@ -528,6 +561,17 @@
     }
     if (out) out[0] = bt;
     return best;
+  }
+  /** v4: is p inside a solid (furniture, platform, column, partition, balcony, wall)? Majority vote over 7 rays: from inside
+   *  a closed solid the first surface met is seen from behind. */
+  function insideSolid(mesh, bvh, p) {
+    const dirs = [[1, 0.13, 0.07], [-1, 0.11, -0.05], [0.09, 1, 0.12], [-0.1, -1, 0.06], [0.08, -0.12, 1], [0.12, 0.07, -1], [0.6, 0.6, 0.53]];
+    const out = [0, 0, 0]; let back = 0, n = 0;
+    for (const d0 of dirs) {
+      const d = norm(d0), ti = raycast(bvh, p[0], p[1], p[2], d[0], d[1], d[2], 1e-6, 1e6, out, true); if (ti < 0) continue;
+      n++; if (dot(d, mesh.tris[ti].n) > 0) back++;
+    }
+    return n > 0 && back * 2 > n;
   }
   /** all front+back hits along an infinite line segment (for voxelisation) -> array of [t, triIndex] */
   function raycastAll(bvh, ox, oy, oz, dx, dy, dz, tmax, res) {
@@ -1533,6 +1577,64 @@
     return { mesh, bvh, M, isr, dif, ray, early, ir, se, ms: Date.now() - t0, env, c };
   }
 
+  // ---------- v4: column shapes + furniture catalogue ----------
+  const COL_SIDES = { round: 16, square: 4, hex: 6, oct: 8 };
+  function columnArea(c) {
+    const r = c.r || 0.25, n = COL_SIDES[c.shape] || 16;
+    return c.shape === 'square' ? 4 * r * r : 0.5 * n * r * r * Math.sin(2 * Math.PI / n);
+  }
+  /** Furniture is a few boxes in local coordinates (x across the width w, y across the depth d, centred on the item).
+   *  Sizes are in metres; materials are existing table entries (upholstery ≈ empty fabric seats, timber ≈ solid door). */
+  const FURNITURE = {
+    sofa: { ko: '소파', w: 2.0, d: 0.9, h: 0.85, mat: 'seats_empty', parts: (w, d, h) => [
+      { x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2 - 0.22, z0: 0, z1: 0.45 * h / 0.85 },
+      { x0: -w / 2, x1: w / 2, y0: d / 2 - 0.22, y1: d / 2, z0: 0, z1: h },
+      { x0: -w / 2, x1: -w / 2 + 0.18, y0: -d / 2, y1: d / 2 - 0.22, z0: 0.45 * h / 0.85, z1: 0.65 * h / 0.85 },
+      { x0: w / 2 - 0.18, x1: w / 2, y0: -d / 2, y1: d / 2 - 0.22, z0: 0.45 * h / 0.85, z1: 0.65 * h / 0.85 }] },
+    table: { ko: '책상 · 탁자', w: 1.6, d: 0.8, h: 0.75, mat: 'wood_door', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: h - 0.04, z1: h }] },
+    bookshelf: { ko: '책장', w: 1.2, d: 0.35, h: 2.0, mat: 'wood_lining', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+    wardrobe: { ko: '옷장', w: 1.2, d: 0.6, h: 2.1, mat: 'wood_door', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+    bed: { ko: '침대', w: 1.6, d: 2.0, h: 0.55, mat: 'wood_door', top: 'seats_empty', parts: (w, d, h) => [
+      { x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h },
+      { x0: -w / 2, x1: w / 2, y0: d / 2 - 0.08, y1: d / 2, z0: h, z1: h + 0.45 }] },
+    upright_piano: { ko: '업라이트 피아노', w: 1.5, d: 0.6, h: 1.25, mat: 'wood_door', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+    grand_piano: { ko: '그랜드 피아노', w: 1.5, d: 2.1, h: 1.0, mat: 'wood_door', parts: (w, d, h) => [{ poly: grandOutline(w, d), z0: 0.62 * h, z1: h }] },
+    lectern: { ko: '강연대', w: 0.6, d: 0.5, h: 1.15, mat: 'wood_door', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+    seat_rows: { ko: '객석 줄 (천 의자)', w: 6, d: 4, h: 0.85, mat: 'seats_empty', rows: true, parts: (w, d, h) => {
+      const n = Math.max(1, Math.round(d / 0.9)), pitch = d / n, out = [];
+      for (let k = 0; k < n; k++) { const y0 = -d / 2 + k * pitch; out.push({ x0: -w / 2, x1: w / 2, y0: y0 + 0.05, y1: y0 + Math.min(0.6, pitch * 0.7), z0: 0, z1: h }); }
+      return out; } },
+    risers: { ko: '계단식 객석', w: 6, d: 4.5, h: 1.5, mat: 'seats_empty', top: 'seats_empty', parts: (w, d, h) => {
+      const n = Math.max(2, Math.round(d / 0.9)), step = d / n, out = [];
+      for (let k = 0; k < n; k++) out.push({ x0: -w / 2, x1: w / 2, y0: -d / 2 + k * step, y1: -d / 2 + (k + 1) * step, z0: 0, z1: Math.max(0.15, h * (k + 1) / n) });
+      return out; } },
+    absorber: { ko: '흡음 패널 (스탠드)', w: 1.2, d: 0.1, h: 2.0, mat: 'rockwool_panel', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0.25, z1: h }] },
+    diffuser: { ko: '확산체 (QRD)', w: 0.6, d: 0.2, h: 1.8, mat: 'qrd_diffuser', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+    drum_riser: { ko: '드럼 단', w: 2.4, d: 2.0, h: 0.3, mat: 'stage_floor', top: 'carpet_thin', parts: (w, d, h) => [{ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2, z0: 0, z1: h }] },
+  };
+  function grandOutline(w, d) { // keyboard edge at y = -d/2, curved tail toward +y
+    const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d * 0.05]];
+    for (let k = 1; k <= 8; k++) { const t = k / 8; pts.push([w / 2 - w * 0.55 * t, d * 0.05 + (d * 0.45) * Math.sin(t * Math.PI / 2)]); }
+    pts.push([-w / 2 + w * 0.08, d / 2 - 0.02], [-w / 2, d * 0.3]);
+    return pts;
+  }
+  /** expand one furniture item to boxes in room coordinates: [{poly, z0, z1, mat, top}] */
+  function furnitureParts(f) {
+    const F = FURNITURE[f.type]; if (!F) return [];
+    const w = Math.max(0.1, f.w || F.w), d = Math.max(0.05, f.d || F.d), h = Math.max(0.1, f.h || F.h);
+    const mat = f.mat || F.mat, top = f.top || F.top || mat, an = (f.rot || 0) * Math.PI / 180, ca = Math.cos(an), sa = Math.sin(an);
+    const T = ([x, y]) => [f.x + x * ca - y * sa, f.y + x * sa + y * ca];
+    return F.parts(w, d, h).map(q => {
+      const poly = (q.poly || [[q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]]).map(T);
+      return { poly, z0: q.z0, z1: Math.max(q.z0 + 0.02, q.z1), mat, top };
+    }).filter(q => Math.abs(polyArea(q.poly)) > 1e-4);
+  }
+  /** rotated w×d rectangle of the item (plan footprint, for hit testing and drawing) */
+  function furnitureFootprint(f) {
+    const F = FURNITURE[f.type] || { w: 1, d: 1 }; const w = f.w || F.w, d = f.d || F.d, an = (f.rot || 0) * Math.PI / 180, ca = Math.cos(an), sa = Math.sin(an);
+    return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([x, y]) => [f.x + x * ca - y * sa, f.y + x * sa + y * ca]);
+  }
+
   // ---------- shoebox helper (for tests and the starter scene) ----------
   function shoebox(Lx, Ly, H, mats, thick) {
     mats = mats || {}; thick = thick || 0.2;
@@ -1547,7 +1649,7 @@
     BANDS, NB, MATERIALS, defMat, airAbsDb, airM, soundSpeed, buildMesh, buildBVH, raycast, matArrays, sabineEyring,
     imageSources, edgeDiffraction, utdField, fresnelTail, rayTrace, voxelise, raycastAll, refractPath, dcdT, fdtdRun, fft, bandCurve, synthIR, decayParams,
     simulate, shoebox, rng, bandFilterExport: bandFilter, hybridIR, lp2, hp2, alphaRandom, betaFromRandomAlpha, earClip, polyArea, pointInPoly, headCues, visible, octaveShare,
-    fitBoundary, alphaRandomZ, lowFreqResponse,
+    fitBoundary, alphaRandomZ, lowFreqResponse, insideSolid, FURNITURE, furnitureParts, furnitureFootprint, columnArea, COL_SIDES,
     phys: { miki, surfaceZ, alphaAt, alphaField, alphaOctaves, buildUp, resonanceHz, applyPhysLF, makeMaterial },
     vec: { add, sub, mul, dot, cross, len, norm }
   };
