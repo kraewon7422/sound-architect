@@ -10,8 +10,13 @@ materials, the engine computes its impulse response, and you **hear** the room b
 recordings through it. The numbers are checked against closed-form theory, published references and
 a measured room.
 
-* **Geometry**: thick walls with mitred corners, curved walls, doors and windows with jambs and
-  leaves, partitions, columns, platforms, balconies, and flat, shed, gable or vaulted ceilings.
+* **Geometry**: thick walls with mitred corners, curved walls, straight or curved partitions, doors
+  and windows with jambs and leaves, round/square/hexagonal/octagonal columns, platforms,
+  balconies, and flat, shed, gable, vaulted or domed ceilings. One-click room shapes are available:
+  rectangle, L, fan, hexagon, octagon, circle and shoebox.
+* **Furniture**: a catalogue of 13 items, including sofa, desk, bookshelf, wardrobe, bed, upright
+  and grand piano, lectern, seat rows, stepped seating, absorber panel, QRD diffuser and drum riser.
+  Each item can be resized, rotated and given any material.
 * **Propagation**: image sources for early reflections, UTD edge diffraction, and stochastic ray
   tracing for the late tail. A 3-D FDTD wave solver covers the low frequencies, with
   frequency-dependent wall impedances.
@@ -20,6 +25,9 @@ a measured room.
   curtain). A built-in editor uses it to design new materials.
 * **Output**: binaural auralisation (WebAudio convolution), ISO 3382-1 metrics, decay curves, an
   echogram, a 20–300 Hz room-mode analysis, and an animated pressure field.
+* **Sound**: 15 dry recordings, most of them 30–60 s long: speech, singing, choir, bassoon, viol,
+  trumpet, drums, handclap and pistol. You can also load your own audio file; it is decoded in the
+  browser and never uploaded.
 
 [**▶ Try the live demo**](https://kraewon7422.github.io/sound-architect/). Headphones are
 recommended. The interface is in Korean.
@@ -30,6 +38,12 @@ recommended. The interface is in Korean.
 room in 3-D. Right: the 1 kHz echogram and the low-frequency response at the listener. Below the
 Schroeder frequency (241 Hz here) the response is computed by FDTD; red dots mark the room-mode
 peaks.*
+
+![Furniture and shapes](docs/furniture.png)
+
+*A small living room with furniture from the catalogue (sofa, desk, bookshelf, a grand piano rotated
+by 30°), a curved low partition, a hexagonal column and a domed ceiling. Each item is ordinary
+geometry, so it reflects, scatters and absorbs in every part of the simulation.*
 
 ## Quick start
 
@@ -54,7 +68,7 @@ runs offline.
 | Tab | What it does |
 |---|---|
 | 건축 *Build* | plan editor, 3-D view, materials, air temperature, humidity and temperature gradient |
-| 듣기 *Listen* | anechoic clips (voice, choir, bassoon, drum, clap…) convolved with the room; A/B against a measured IR |
+| 듣기 *Listen* | dry clips (speech, singing, choir, bassoon, drums…) or your own file, convolved with the room; repeat with a 1.5 s tail; A/B against a measured IR |
 | 분석 *Analyse* | T30, EDT, C80, D50 and G per octave, decay curves, echogram, low-frequency analysis, wave view |
 | 도전 *Challenges* | five design goals (for example "make this lecture hall intelligible") graded on the computed metrics |
 | 검증 *Verify* | the verification table below, reproduced in the app |
@@ -65,9 +79,10 @@ runs offline.
 node tests.js                     # physics verification suite (Node ≥ 18, about 2 minutes)
 ```
 
-In a browser, open `index.html?test=1`. The page title becomes `Tests 22/22`. These tests cover
-presets, editing and undo, simulation, recovery from errors, discarding stale results, the material
-editor, audio convolution and tab switching.
+In a browser, open `index.html?test=1`. The page title becomes `Tests 29/29`. These tests cover:
+presets, editing, undo and redo, simulation, recovery from errors, discarding stale results, the
+material editor, playback (repeated clicks, stopping, repeat), loading your own file, room-shape
+templates, furniture, curved walls, audio convolution and tab switching.
 
 CI runs `node tests.js` on every push.
 
@@ -78,8 +93,8 @@ index.html      app: plan editor, 3-D view, listening, analysis, challenges, in-
 core.js         acoustics engine, no DOM; shared by the worker and the Node tests
 worker.js       runs a simulation off the main thread
 materials.js    generated material table + construction parameters for the physical model
-tests.js        Node verification suite (34 tests)
-audio/          anechoic clips and two measured impulse responses, see audio/LICENSES.md
+tests.js        Node verification suite (39 tests)
+audio/          dry clips and two measured impulse responses, see audio/LICENSES.md
 docs/           README figures
 PLAY.cmd        local server launcher for Windows
 ```
@@ -129,6 +144,10 @@ compare against stored outputs.
 | Physical model vs measured tables | rockwool, plasterboard, wood lining and others | rms Δα 0.04–0.16 |
 | FDTD wall reflection in a duct | \|(ζ−1)/(ζ+1)\| of the fitted impedance | ±0.05 at 63–125 Hz, ±0.1 at 180–250 Hz |
 | Room-mode peaks, 7.2 × 5.1 × 3 m box | analytic modes | within 2 % |
+| Curved wall, round hall | sagitta, πr² | −0.79 vs −0.80 m; 193.4 vs 193.6 m² |
+| Closed mesh: curved walls/partitions, faceted columns, furniture, vault, dome | rays lost | 0.00 % each |
+| Duplicate vertex, window touching a corner | rays lost | 0.00 % (were 17.5 % and 16 %) |
+| Point inside furniture/column/partition/platform | 11 probe points | all classified correctly |
 
 The 180–250 Hz duct error shrinks as the grid is refined (0.10 → 0.08 → 0.05 at 8, 6 and 4 cm), so
 it comes from grid dispersion, not from the boundary model.
@@ -164,16 +183,23 @@ This is geometric acoustics with a wave-based low end, not a full-band wave solv
   single material.
 * Second-order diffraction is modelled only inside the FDTD band.
 * Materials come from generic tables, and the constructions used for 63 Hz are typical estimates.
+* Furniture is modelled as a few boxes. Upholstery uses the empty-fabric-seat absorption, and timber
+  uses the solid-door absorption.
 * Ray tracing is Monte Carlo, so T30 varies by roughly 15–25 % between runs at 10 000 rays.
 * The natural next steps are extended-reaction walls in the FDTD solver and variance reduction for
   the ray tracer.
 
 ## Credits
 
-* Anechoic recordings come from three sources:
+* Dry recordings come from six sources:
   * the OpenAIR Anechoic Database, University of York (CC BY-SA 4.0, via Zenodo 1186905);
   * the racquetball-court study's speech and drum clips and its measured IRs (CC BY 4.0, Zenodo 15739328);
-  * Aalto University's anechoic handclaps (CC BY 4.0, Zenodo 22892926).
+  * Aalto University's anechoic handclaps (CC BY 4.0, Zenodo 22892926);
+  * long speech from the CSTR VCTK Corpus, hemi-anechoic, via Valentini-Botinhao's clean test set
+    (CC BY 4.0, doi:10.7488/ds/2645 and 10.7488/ds/2117);
+  * singing from VocalSet (Wilkins et al., ISMIR 2018; CC BY 4.0, Zenodo 1193957);
+  * a drum groove from the Groove MIDI Dataset, Google LLC (CC BY 4.0). This one is an electronic kit
+    recorded from the module output, so it contains no room.
 
   Per-file details are in [audio/LICENSES.md](audio/LICENSES.md).
 * Absorption data comes from pyroomacoustics `materials.json` (MIT; the values follow Vorländer,
@@ -193,7 +219,8 @@ original Creative Commons licences; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOT
 **소리 건축가**는 벽과 재질로 공간을 짓고 그 공간의 소리를 직접 들어 보는 음향 시뮬레이터예요.
 
 - **계산 방식:** 거울상 반사, 모서리 회절(UTD), 음선 추적으로 공간의 임펄스 응답을 계산해요. 저음은 3차원 파동 계산(FDTD)으로 따로 계산해요.
-- **들어 보기:** 무향실에서 녹음한 목소리·합창·악기 소리를 그 공간에 넣어 들려줘요.
+- **들어 보기:** 울림 없이 녹음한 말소리·노래·합창·악기·드럼 소리(대부분 30–60초)를 그 공간에 넣어 들려줘요. 내 소리 파일도 불러올 수 있어요. 파일은 브라우저 안에서만 열리고 어디에도 올라가지 않아요.
+- **공간 꾸미기:** 소파·책상·책장·피아노·객석 같은 가구 13종, 휜 칸막이, 육각·팔각 기둥, 돔 천장을 쓸 수 있어요. 방 모양(L자, 부채꼴, 원형 등)도 한 번에 바꿀 수 있어요.
 - **재질 만들기:** 흡음재 두께, 공기층, 판 무게, 구멍 크기를 정하면 흡음률을 물리 모델로 계산해서 새 재질로 만들어 줘요.
 - **검증:** 계산 결과를 이론값, 표준, 실제로 측정한 코트와 비교했어요. 저음(125 Hz)처럼 맞지 않는 부분도 숨기지 않고 그대로 보여 줘요.
 
