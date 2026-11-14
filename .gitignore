@@ -1,0 +1,8 @@
+# local work files, experiments and snapshots
+.work/
+old/
+CONTINUE.md
+PLAN.md
+.private/
+__pycache__/
+*.log

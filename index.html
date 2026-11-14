@@ -1,0 +1,1555 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>소리 건축가 — Sound Architect</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="벽을 세우고 재질을 고르면, 그 공간의 소리를 계산해서 들려주는 음향 건축 시뮬레이터">
+<style>
+:root{
+  --paper:#f3efe6; --paper-2:#e8e2d4; --card:#fbf9f4; --ink:#1d2126; --ink-2:#4a5059; --ink-3:#6b717a;
+  --line:#cfc6b4; --line-2:#b9ae98; --accent:#b8481f; --accent-ink:#ffffff; --teal:#1f6b66; --amber:#a86b00;
+  --ok:#2c6e35; --bad:#a1252c; --focus:#1f6b66;
+  --r:6px; --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+  --sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;word-break:keep-all;overflow-wrap:break-word}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;height:100dvh}
+header{display:flex;align-items:center;gap:16px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand h1{font-size:17px;margin:0;letter-spacing:-.01em;white-space:nowrap}
+.brand small{color:var(--ink-3);font-size:12px;white-space:nowrap}
+.tabs{display:flex;gap:2px;background:var(--paper-2);padding:3px;border-radius:8px;flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:6px 12px;border-radius:6px;color:var(--ink-2);font-weight:600;white-space:nowrap}
+.tab[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 0 var(--line-2)}
+.spacer{flex:1}
+.hdr-note{font-size:12px;color:var(--ink-3);white-space:nowrap}
+main{display:grid;grid-template-columns:1fr 360px;min-height:0}
+.viewport{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.vtoolbar{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--card);padding:5px 10px;white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.tools{display:flex;gap:3px;flex-wrap:wrap}
+.tool{display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;background:transparent;border-radius:6px;padding:4px 8px;color:var(--ink-2);white-space:nowrap}
+.tool svg{width:18px;height:18px;flex:none}
+.tool[aria-pressed=true]{border-color:var(--ink);color:var(--ink);background:var(--paper)}
+.tool:hover{background:var(--paper)}
+.views{flex:1;display:grid;min-height:0}
+.views.split{grid-template-columns:1fr 1fr}
+.pane{position:relative;min-width:0;min-height:0;overflow:hidden}
+.pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#plan{cursor:crosshair}
+.pane-label{position:absolute;left:8px;top:8px;font-size:11px;letter-spacing:.06em;color:var(--ink-3);background:rgba(251,249,244,.9);padding:2px 6px;border-radius:4px;pointer-events:none}
+.hint{font-size:12px;color:var(--ink-2);background:var(--card);border-top:1px solid var(--line);padding:6px 10px;min-height:3.4em}
+.banner{position:absolute;left:8px;right:8px;top:30px;background:var(--card);border:1px solid var(--ink);border-radius:6px;padding:6px 10px;font-size:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 2px 0 var(--line)}
+.banner b{font-size:12.5px}
+.plan-warn{position:absolute;left:8px;right:8px;bottom:8px;background:#fff3f0;border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:6px 10px;font-size:12.5px}
+.badge{display:inline-block;font-size:10.5px;padding:0 5px;border-radius:3px;background:var(--paper-2);color:var(--ink-2);align-self:flex-start}
+.badge.hi{background:#dcebe9;color:#174f4b} .badge.lo{background:#f3e6dc;color:#7a3a14}
+.verdict{font-size:13px;background:var(--paper);border-left:3px solid var(--teal);padding:6px 8px;margin:0 0 8px}
+.v3d-ctrls{position:absolute;right:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.chipbtn{border:1px solid var(--line-2);background:var(--card);border-radius:999px;padding:3px 10px;font-size:12px;white-space:nowrap}
+.chipbtn[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+aside{overflow:auto;background:var(--card);min-height:0}
+.panel{padding:12px 14px;border-bottom:1px solid var(--line)}
+.panel h2{font-size:13px;margin:0 0 8px;color:var(--ink);letter-spacing:.02em}
+.panel h3{font-size:12px;margin:10px 0 6px;color:var(--ink-2)}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+.row label{min-width:84px;color:var(--ink-2);font-size:13px}
+.row .val{font-family:var(--mono);font-size:12px;min-width:56px;text-align:right}
+.row input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
+select,input[type=number]{border:1px solid var(--line-2);background:#fff;border-radius:5px;padding:4px 6px;min-width:0}
+.meaning{font-size:12px;color:var(--ink-3);margin:-2px 0 6px}
+.btn{border:1px solid var(--ink);background:var(--card);border-radius:6px;padding:6px 12px;font-weight:600;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:3px 8px;font-size:12px;font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+.mats{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px}
+.mat{border:1px solid var(--line);border-radius:6px;background:#fff;padding:4px;text-align:left;font-size:11.5px;line-height:1.25;display:flex;flex-direction:column;gap:3px;min-width:0}
+.mat canvas{width:100%;height:30px;border-radius:3px;display:block}
+.mat span{overflow-wrap:anywhere}
+.mat[aria-pressed=true]{border:2px solid var(--accent);padding:3px}
+.matcat{font-size:11px;color:var(--ink-3);margin:8px 0 4px;letter-spacing:.04em}
+.matinfo{border:1px solid var(--line);border-radius:6px;padding:8px;background:#fff;margin-top:8px}
+.matinfo canvas{width:100%;height:84px;display:block}
+.mated .row{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto;gap:6px;align-items:center;margin:4px 0}
+.mated .row select,.mated .row input[type=text]{grid-column:2/4;min-width:0;width:100%}
+.mated .mk-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mk-open{width:100%;margin:4px 0 2px}
+.src-cite{font-size:11px;color:var(--ink-3);margin-top:4px;overflow-wrap:anywhere}
+.sounds{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sound{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 8px;text-align:left;font-size:12.5px;min-width:0}
+.sound[aria-pressed=true]{border:2px solid var(--teal);padding:5px 7px}
+.sound small{display:block;color:var(--ink-3);font-size:11px}
+.ab{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.ab button{border:1px solid var(--line-2);background:#fff;border-radius:6px;padding:6px 4px;font-weight:600;font-size:12.5px}
+.ab button[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#fff}
+.ab button:disabled{opacity:.45;cursor:default}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:3px 4px;text-align:right;border-bottom:1px solid var(--paper-2);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--ink-3);font-weight:600}
+.num{font-family:var(--mono)}
+.plot{width:100%;height:170px;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
+.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:3px;margin-right:4px;vertical-align:middle}
+footer{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.chip{border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px;background:#fff;white-space:nowrap}
+.chip b{font-family:var(--mono);font-weight:600}
+.chip.stale{border-color:var(--amber);color:var(--amber)}
+.prog{flex:1;min-width:120px;max-width:260px;height:6px;background:var(--paper-2);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--teal);transition:width .15s}
+.status{font-size:12px;color:var(--ink-2);min-width:0}
+.chal{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:8px 0;background:#fff}
+.chal h4{margin:0 0 4px;font-size:13px}
+.chal p{margin:4px 0;font-size:12.5px;color:var(--ink-2)}
+.stars{font-family:var(--mono);color:var(--amber);letter-spacing:2px}
+.goal{font-size:12px;font-family:var(--mono)}
+.goal.ok{color:var(--ok)} .goal.no{color:var(--bad)}
+.note{font-size:12px;color:var(--ink-2);background:var(--paper);border-left:3px solid var(--line-2);padding:6px 8px;margin:8px 0}
+.err{color:var(--bad)}
+.kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line-2);border-radius:3px;padding:0 4px;background:#fff}
+@media (max-width: 900px){
+  .app{height:auto;min-height:100vh}
+  main{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .viewport{border-right:0;border-bottom:1px solid var(--line)}
+  .views{height:62vh;min-height:340px}
+  .views.split{grid-template-columns:1fr;grid-template-rows:1fr 1fr;height:90vh}
+  aside{overflow:visible}
+  .tool .tl{display:none}
+  .hdr-note{display:none}
+  footer{position:sticky;bottom:0;z-index:5;box-shadow:0 -2px 0 var(--line)}
+}
+@media (max-width: 420px){
+  header{gap:8px;padding:8px 10px}
+  .tab{padding:5px 8px}
+  .sounds{grid-template-columns:1fr}
+}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="core.js"></script>
+<script src="materials.js"></script>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="3" y="5" width="5" height="20" fill="#1d2126"/><path d="M3 5l5 5M3 10l5 5M3 15l5 5M3 20l5 5" stroke="#f3efe6" stroke-width="1"/><path d="M13 9a8 8 0 0 1 0 12M17 6a12 12 0 0 1 0 18M21 3a16 16 0 0 1 0 24" fill="none" stroke="#b8481f" stroke-width="2"/></svg>
+    <div><h1>소리 건축가</h1><small>벽을 세우면, 그 공간의 소리가 들립니다</small></div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="모드">
+    <button class="tab" role="tab" data-tab="build" aria-selected="true">건축</button>
+    <button class="tab" role="tab" data-tab="listen" aria-selected="false">듣기</button>
+    <button class="tab" role="tab" data-tab="analyse" aria-selected="false">분석</button>
+    <button class="tab" role="tab" data-tab="challenge" aria-selected="false">도전</button>
+    <button class="tab" role="tab" data-tab="verify" aria-selected="false">검증</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="hdr-note">헤드폰으로 들으면 좌우 방향까지 들립니다</span>
+</header>
+
+<main>
+  <section class="viewport">
+    <div class="vtoolbar">
+      <div class="seg" role="group" aria-label="보기">
+        <button data-view="plan" aria-pressed="false">평면도</button>
+        <button data-view="3d" aria-pressed="false">3D</button>
+        <button data-view="split" aria-pressed="true">나란히</button>
+      </div>
+      <div class="tools" id="tools" role="toolbar" aria-label="도구"></div>
+      <div class="spacer"></div>
+      <span style="display:inline-flex;gap:6px;white-space:nowrap"><button class="btn small" id="undo" title="되돌리기 (Ctrl+Z)">되돌리기</button><button class="btn small" id="redo" title="다시 하기 (Ctrl+Y)">다시</button></span>
+    </div>
+    <div class="views split" id="views">
+      <div class="pane" id="planPane"><canvas id="plan" aria-label="평면도 편집기"></canvas><span class="pane-label">평면도 · 1칸 = 1 m</span><div class="banner" id="banner" hidden></div><div class="plan-warn" id="planWarn" hidden></div></div>
+      <div class="pane" id="threePane"><canvas id="three" aria-label="3D 보기"></canvas><span class="pane-label">3D · 끌어서 회전, 휠로 확대</span>
+        <div class="v3d-ctrls">
+          <button class="chipbtn" id="tCeil" aria-pressed="false">천장 보이기</button>
+          <button class="chipbtn" id="tPaths" aria-pressed="true">반사 경로</button>
+          <button class="chipbtn" id="tEar" aria-pressed="false">청취자 시점</button>
+        </div>
+      </div>
+    </div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <aside id="side">
+    <!-- BUILD -->
+    <div data-pane="build">
+      <div class="panel">
+        <h2>공간 고르기</h2>
+        <select id="preset" style="width:100%"></select><div class="row"><button class="btn small" id="resetPreset">처음 상태로 되돌리기</button></div>
+        <p class="meaning" id="presetNote"></p>
+      </div>
+      <div class="panel" id="selPanel">
+        <h2 id="selTitle">선택한 요소</h2>
+        <div id="selBody"></div>
+      </div>
+      <div class="panel">
+        <h2>천장 · 바닥</h2>
+        <div class="row"><label for="ceilType">천장 모양</label><select id="ceilType"><option value="flat">평평한 천장</option><option value="shed">한쪽 경사</option><option value="gable">박공 (ㅅ자)</option><option value="vault">둥근 볼트</option></select></div>
+        <div class="row"><label for="ceilH">천장 높이</label><input type="range" id="ceilH" min="2.2" max="25" step="0.1"><span class="val" id="ceilHv"></span></div>
+        <div class="row" id="riseRow"><label for="ceilRise">솟음 높이</label><input type="range" id="ceilRise" min="0" max="15" step="0.1"><span class="val" id="ceilRisev"></span></div>
+        <div class="row"><label for="ceilAxis">경사 방향</label><select id="ceilAxis"><option value="0">가로 (x)</option><option value="1">세로 (y)</option></select></div>
+        <div class="row"><button class="btn small" id="pickCeil">천장 재질 바꾸기</button><button class="btn small" id="pickFloor">바닥 재질 바꾸기</button></div>
+      </div>
+      <div class="panel">
+        <h2>공기</h2>
+        <div class="row"><label for="envT">온도</label><input type="range" id="envT" min="-10" max="40" step="1"><span class="val" id="envTv"></span></div>
+        <p class="meaning">따뜻할수록 소리가 빨라집니다 (20 °C ≈ 343 m/s).</p>
+        <div class="row"><label for="envRH">습도</label><input type="range" id="envRH" min="10" max="100" step="1"><span class="val" id="envRHv"></span></div>
+        <p class="meaning">건조할수록 높은 소리가 공기에 더 많이 흡수됩니다 (ISO 9613-1).</p>
+        <div class="row"><label for="envG">온도 기울기</label><input type="range" id="envG" min="-2" max="2" step="0.1"><span class="val" id="envGv"></span></div>
+        <p class="meaning">위쪽이 따뜻하면(+) 소리가 아래로 휘고, 차가우면(−) 위로 휩니다. 큰 홀이나 아트리움에서만 차이가 납니다.</p>
+      </div>
+    </div>
+
+    <!-- LISTEN -->
+    <div data-pane="listen" hidden>
+      <div class="panel">
+        <h2>무엇을 들을까요</h2>
+        <div class="sounds" id="sounds"></div>
+        <p class="src-cite">모든 소리는 울림이 없는 무향실에서 녹음한 실제 음원입니다. 출처는 검증 탭에 있습니다.</p>
+      </div>
+      <div class="panel">
+        <h2>비교해서 듣기</h2>
+        <div class="ab" role="group" aria-label="비교">
+          <button data-ab="dry" aria-pressed="false">원음 (울림 없음)</button>
+          <button data-ab="sim" aria-pressed="true">내가 만든 공간</button>
+          <button data-ab="meas" aria-pressed="false" id="abMeas" disabled>실제 측정</button>
+        </div>
+        <p class="meaning" id="measNote" style="margin-top:6px">‘실제 측정’은 라켓볼 코트 공간에서만 켜집니다. 같은 위치에서 실제로 녹음한 울림과 바로 비교할 수 있습니다.</p>
+        <div class="row"><button class="btn primary" id="play">▶ 재생</button><button class="btn" id="stop">■ 정지</button><label style="min-width:auto"><input type="checkbox" id="loop" checked> 반복</label></div>
+        <div class="row"><label for="vol">음량</label><input type="range" id="vol" min="0" max="1" step="0.01" value="0.7"></div>
+        <div class="row"><label style="min-width:auto"><input type="checkbox" id="absLevel"> 실제 음량차 유지</label></div>
+        <p class="meaning">끄면 공간마다 음량을 맞춰서 울림의 차이만 들립니다. 켜면 거리와 흡음에 따른 실제 크기 차이까지 들립니다.</p>
+      </div>
+      <div class="panel">
+        <h2>듣는 사람</h2>
+        <div class="row"><label for="face">바라보는 방향</label><input type="range" id="face" min="-180" max="180" step="5"><span class="val" id="facev"></span></div>
+        <div class="row"><label for="earH">귀 높이</label><input type="range" id="earH" min="0.3" max="3" step="0.05"><span class="val" id="earHv"></span></div>
+        <div class="row"><label for="srcH">음원 높이</label><input type="range" id="srcH" min="0.3" max="3" step="0.05"><span class="val" id="srcHv"></span></div>
+        <p class="meaning">평면도에서 주황색 스피커(음원)와 청록색 머리(청취자)를 끌어서 옮길 수 있습니다.</p>
+      </div>
+    </div>
+
+    <!-- ANALYSE -->
+    <div data-pane="analyse" hidden>
+      <div class="panel">
+        <h2>공간의 성적표</h2>
+        <div id="metricsTable"><p class="meaning">아래 ‘소리 계산’을 누르면 표가 채워집니다.</p></div>
+        <p class="meaning">T30 = 소리가 60 dB 줄어드는 시간(잔향), EDT = 처음 10 dB가 줄어드는 속도로 잰 잔향, C80 = 음악의 명료도, D50 = 말의 명료도, G = 10 m 거리의 자유 공간 대비 음량. 모두 ISO 3382-1 방식입니다.</p>
+      </div>
+      <div class="panel">
+        <h2>잔향 곡선</h2>
+        <canvas class="plot" id="decayPlot"></canvas>
+        <div class="legend" id="decayLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>도착하는 소리 (1 kHz 에코그램)</h2>
+        <canvas class="plot" id="echoPlot"></canvas>
+        <p class="meaning">세로 막대는 직접음과 벽 반사(초기 반사)이고, 뒤로 이어지는 띠가 잔향입니다. 청록 막대는 모서리를 돌아온 회절음입니다.</p>
+      </div>
+      <div class="panel">
+        <h2>저음 분석 (방의 공진)</h2>
+        <canvas class="plot" id="lfPlot"></canvas>
+        <p class="meaning" id="lfText">아래 ‘소리 계산’을 누르면 청취자 위치의 저음 응답이 그려집니다.</p>
+      </div>
+      <div class="panel">
+        <h2>파동 보기</h2>
+        <div class="row"><button class="btn small" id="waveRun">파동 계산해서 보기</button><button class="btn small" id="wavePlay" disabled>다시 재생</button><span class="status" id="waveStatus"></span></div>
+        <p class="meaning">평면도 위에 귀 높이에서의 실제 압력 파동(FDTD)을 그립니다. 문틈으로 퍼지는 회절과 간섭무늬를 볼 수 있습니다. 작은 방은 몇 초, 큰 홀은 1분 가까이 걸리고, 공간을 고치면 사라집니다.</p>
+      </div>
+    </div>
+
+    <!-- CHALLENGE -->
+    <div data-pane="challenge" hidden>
+      <div class="panel">
+        <h2>도전 과제</h2>
+        <p class="meaning">공간을 고쳐서 목표 수치를 맞춰 보세요. 결과는 실제 음향 지표로 채점합니다.</p>
+        <div id="challenges"></div>
+      </div>
+    </div>
+
+    <!-- VERIFY -->
+    <div data-pane="verify" hidden>
+      <div class="panel">
+        <h2>실제 공간과 비교</h2>
+        <p class="meaning">실측 데이터가 공개된 라켓볼 코트(6.10 × 12.19 × 6.10 m)를 그대로 만들고, 재질은 표에서 미리 고른 값(맞추기 위한 조정 없음)으로 계산한 결과입니다. 8개 위치 평균.</p>
+        <div id="valTable"></div>
+        <p class="note">중간 주파수(500 Hz–1 kHz)는 실측과 10% 안팎으로 맞습니다. 125 Hz는 실제 코트의 벽 판재가 낮은 소리를 흡수하는데 재질표에는 그 정보가 없어서 길게 나오고, 2–4 kHz는 표의 미장 벽 흡음률이 이 코트보다 커서 짧게 나옵니다. 재질을 정확히 모르면 이 정도 차이가 납니다. 숨기지 않고 그대로 보여드립니다.</p>
+        <p class="note">저음 파동 계산(FDTD)을 켜도 125 Hz는 맞아지지 않습니다(4.4 s → 5.0–5.4 s, 실측 2.1 s). 파동 계산은 벽이 실제로 저음을 얼마나 흡수하는지를 대신 알아낼 수 없기 때문입니다. 시험 삼아 벽을 ‘석고보드 경량벽’(판 진동 구조)으로 바꾸면 음선 계산의 125 Hz가 2.1–2.2 s로 실측과 맞지만 250 Hz가 짧아집니다(2.9 s, 실측 4.2 s). 이것은 검증이 아니라 ‘만약’입니다.</p>
+        <button class="btn small" id="goCourt">라켓볼 코트에서 실측과 비교해 듣기</button>
+      </div>
+      <div class="panel">
+        <h2>물리 계산 검증</h2>
+        <div id="testList"></div>
+        <p class="meaning">자동 테스트: 주소 끝에 <span class="kbd">?test=1</span>을 붙이면 브라우저 안에서 다시 돌려 볼 수 있습니다.</p>
+      </div>
+      <div class="panel">
+        <h2>계산 방법</h2>
+        <p class="meaning">초기 반사: 거울상(이미지 소스) 방식 · 모서리 회절: UTD (Kouyoumjian–Pathak) · 잔향: 산란을 포함한 확률적 음선 추적 · 저음: 3차원 FDTD 파동 계산을 크로스오버로 합성, 벽은 재질마다 저항·질량·스프링 임피던스로 주파수별 흡음 (Bilbao 2013) · 재질 물리: 전달행렬법(Miki 다공질, 판 진동, Maa 타공판), 표에 없는 63 Hz는 실제 구성 모델로 외삽 · 공기 흡수: ISO 9613-1 · 굴절: 온도 기울기에 따른 음선 휨 · 벽 투과: 질량 법칙 + 일치 주파수(Sharp) · 지표: ISO 3382-1.</p>
+        <h3>데이터 출처</h3>
+        <div id="credits" class="src-cite"></div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <button class="btn primary" id="compute">소리 계산</button>
+  <select id="quality" aria-label="계산 품질"><option value="fast">빠르게</option><option value="normal" selected>보통</option><option value="fine">정밀하게</option></select>
+  <div class="prog" aria-hidden="true"><i id="progBar"></i></div>
+  <span class="status" id="status">공간을 고친 뒤 ‘소리 계산’을 누르세요.</span>
+  <div class="spacer"></div>
+  <div class="chips" id="chips"></div>
+</footer>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const SA = window.SA;
+const TEST = new URLSearchParams(location.search).has('test');
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const clone = o => JSON.parse(JSON.stringify(o));
+const fmt = (v, d = 2) => v == null || !isFinite(v) ? '–' : (+v).toFixed(d);
+const store = { // localStorage only for per-viewer convenience; in-memory under ?test=1
+  mem: {}, get(k) { if (TEST) return this.mem[k]; try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { if (TEST) { this.mem[k] = v; return; } try { localStorage.setItem(k, v); } catch (e) { } }
+};
+
+// ------------------------------------------------------------------ materials (UI grouping)
+const MATS = SA.MATERIAL_LIST;
+const MATBY = Object.fromEntries(MATS.map(m => [m.id, m]));
+const CATS = [
+  ['벽 · 구조', ['concrete', 'concrete_rough', 'brick_painted', 'brick', 'plaster', 'limestone', 'gypsum_stud', 'wood_lining', 'plywood']],
+  ['바닥', ['wood_floor', 'stage_floor', 'linoleum', 'ceramic_tile', 'marble', 'carpet_thin', 'carpet_thick', 'water']],
+  ['천장', ['plasterboard_ceiling', 'ceiling_tile', 'metal_ceiling', 'perforated_gypsum']],
+  ['흡음 · 확산', ['curtain_velour', 'curtain_cotton', 'rockwool_panel', 'melamine_foam', 'acoustic_plaster', 'qrd_diffuser']],
+  ['유리 · 문 · 개구부', ['glass_window', 'glass_heavy', 'double_glazing', 'wood_door', 'open_window']],
+  ['객석', ['audience', 'seats_empty', 'pews', 'audience_wood']],
+];
+
+// ------------------------------------------------------------------ presets
+const W = (x, y, mat, thick, extra) => Object.assign({ x, y, mat: mat || 'plaster', thick: thick || 0.2 }, extra || {});
+function rectLoop(x0, y0, x1, y1, mat, thick) { return [W(x0, y0, mat, thick), W(x1, y0, mat, thick), W(x1, y1, mat, thick), W(x0, y1, mat, thick)]; }
+const PRESETS = {
+  living: {
+    name: '작은 거실 (5 × 4 m)', note: '평범한 집의 방. 소파와 커튼이 있고, 창문과 문이 있습니다.',
+    spec: () => {
+      const L = rectLoop(0, 0, 5.2, 4.2, 'plaster', 0.2);
+      L[0].openings = [{ t0: 0.25, t1: 0.65, z0: 0.9, z1: 2.1, kind: 'window', mat: 'glass_window' }];
+      L[2].openings = [{ t0: 0.75, t1: 0.92, z0: 0, z1: 2.1, kind: 'door', mat: 'wood_door' }];
+      L[1].mat = 'curtain_cotton';
+      return { loop: L, ceiling: { type: 'flat', h: 2.6, rise: 0, axis: 0, mat: 'plasterboard_ceiling' }, floorMat: 'wood_floor',
+        partitions: [], columns: [], platforms: [{ poly: [[0.6, 2.9], [3.0, 2.9], [3.0, 3.8], [0.6, 3.8]], h: 0.45, mat: 'seats_empty', topMat: 'seats_empty' }], balconies: [],
+        source: [3.9, 1.2, 1.2], receiver: [1.8, 2.5, 1.1], facing: [1, -0.6, 0], env: { T: 22, RH: 45, grad: 0 } };
+    }
+  },
+  lecture: {
+    name: '강의실 (10 × 8 m, 울리는 상태)', note: '단단한 벽과 바닥뿐인 강의실. 뒷자리에서 말이 잘 안 들립니다.',
+    spec: () => {
+      const L = rectLoop(0, 0, 10.2, 8.2, 'plaster', 0.25);
+      L[1].openings = [{ t0: 0.15, t1: 0.35, z0: 0.9, z1: 2.4, kind: 'window', mat: 'glass_window' }, { t0: 0.55, t1: 0.75, z0: 0.9, z1: 2.4, kind: 'window', mat: 'glass_window' }];
+      L[3].openings = [{ t0: 0.1, t1: 0.2, z0: 0, z1: 2.1, kind: 'door', mat: 'wood_door' }];
+      const desks = []; for (let r = 0; r < 4; r++) desks.push({ poly: [[3 + r * 1.6, 1.2], [3.7 + r * 1.6, 1.2], [3.7 + r * 1.6, 7], [3 + r * 1.6, 7]], h: 0.75, mat: 'pews', topMat: 'pews' });
+      return { loop: L, ceiling: { type: 'flat', h: 3.2, rise: 0, axis: 0, mat: 'plasterboard_ceiling' }, floorMat: 'linoleum',
+        partitions: [], columns: [], platforms: desks, balconies: [], source: [1.2, 4.1, 1.6], receiver: [9.0, 5.0, 1.2], facing: [-1, 0, 0], env: { T: 21, RH: 45, grad: 0 } };
+    }
+  },
+  hall: {
+    name: '슈박스 콘서트홀 (40 × 20 m)', note: '빈 상자 모양의 전통 콘서트홀. 무대, 객석, 양옆 발코니가 있습니다.',
+    spec: () => {
+      const L = rectLoop(0, 0, 40.4, 20.4, 'wood_lining', 0.4);
+      L[3].openings = [{ t0: 0.45, t1: 0.55, z0: 0, z1: 2.4, kind: 'door', mat: 'wood_door' }];
+      return { loop: L, ceiling: { type: 'flat', h: 16, rise: 0, axis: 0, mat: 'plaster' }, floorMat: 'wood_floor', partitions: [],
+        columns: [], platforms: [{ poly: [[0.2, 2], [9, 2], [9, 18.4], [0.2, 18.4]], h: 1.0, mat: 'stage_floor', topMat: 'stage_floor' },
+          { poly: [[12, 1.5], [38, 1.5], [38, 18.9], [12, 18.9]], h: 0.4, mat: 'audience', topMat: 'audience' }],
+        balconies: [{ poly: [[12, 0.2], [40.2, 0.2], [40.2, 3.2], [12, 3.2]], z: 6.5, thick: 0.5, mat: 'plaster', topMat: 'audience' },
+          { poly: [[12, 17.2], [40.2, 17.2], [40.2, 20.2], [12, 20.2]], z: 6.5, thick: 0.5, mat: 'plaster', topMat: 'audience' }],
+        source: [5, 10.2, 2.6], receiver: [26, 7.5, 1.6], facing: [-1, 0, 0], env: { T: 22, RH: 50, grad: 0 } };
+    }
+  },
+  church: {
+    name: '석조 성당 (30 × 12 m, 둥근 볼트)', note: '돌벽, 대리석 바닥, 둥근 천장, 기둥 두 줄. 소리가 오래 남습니다.',
+    spec: () => {
+      const L = rectLoop(0, 0, 30.6, 12.6, 'limestone', 0.6);
+      L[0].openings = [{ t0: 0.2, t1: 0.26, z0: 3, z1: 7, kind: 'window', mat: 'glass_window' }, { t0: 0.5, t1: 0.56, z0: 3, z1: 7, kind: 'window', mat: 'glass_window' }];
+      const cols = []; for (let i = 0; i < 6; i++) { cols.push({ x: 5 + i * 4, y: 3.2, r: 0.45, shape: 'round', mat: 'limestone' }); cols.push({ x: 5 + i * 4, y: 9.4, r: 0.45, shape: 'round', mat: 'limestone' }); }
+      const pews = []; for (let i = 0; i < 5; i++) pews.push({ poly: [[8 + i * 3, 4.3], [9.6 + i * 3, 4.3], [9.6 + i * 3, 8.3], [8 + i * 3, 8.3]], h: 0.5, mat: 'pews', topMat: 'pews' });
+      return { loop: L, ceiling: { type: 'vault', h: 10, rise: 5, axis: 1, mat: 'limestone' }, floorMat: 'marble', partitions: [], columns: cols, platforms: pews, balconies: [],
+        source: [3, 6.3, 1.7], receiver: [22, 5.6, 1.2], facing: [-1, 0, 0], env: { T: 16, RH: 60, grad: 0 } };
+    }
+  },
+  court: {
+    name: '라켓볼 코트 (실측 비교용)', note: '실제로 측정한 코트를 그대로 만들었습니다(Zenodo 15739328). ‘듣기’에서 실제 측정한 울림과 바로 비교해 보세요. 재질은 미리 고른 값입니다.',
+    spec: () => {
+      const o = 0.1, X = 6.096, Y = 12.19;
+      const L = [W(-o, -o, 'glass_heavy', 0.2), W(X + o, -o, 'plaster', 0.2), W(X + o, Y + o, 'plaster', 0.2), W(-o, Y + o, 'plaster', 0.2)];
+      return { loop: L, ceiling: { type: 'flat', h: 6.096, rise: 0, axis: 0, mat: 'plaster' }, floorMat: 'wood_floor', partitions: [], columns: [], platforms: [], balconies: [],
+        source: [3.048, 9.14, 1.52], receiver: [1.524, 3.05, 1.52], facing: [0.24, 0.97, 0], env: { T: 20, RH: 50, grad: 0 }, measured: 'ref_court_101' };
+    }
+  },
+  rooms: {
+    name: '두 방과 문 (회절 실험)', note: '칸막이로 나뉜 두 방. 청취자는 음원이 보이지 않는 옆방에 있어서, 문틈을 돌아 나온 소리를 듣습니다.',
+    spec: () => {
+      const L = rectLoop(0, 0, 12.2, 6.2, 'plaster', 0.2);
+      return { loop: L, ceiling: { type: 'flat', h: 3, rise: 0, axis: 0, mat: 'plasterboard_ceiling' }, floorMat: 'carpet_thin',
+        partitions: [{ a: [6, 0.1], b: [6, 6.1], thick: 0.15, h: 0, mat: 'gypsum_stud', openings: [{ t0: 0.62, t1: 0.77, z0: 0, z1: 2.1, kind: 'door', mat: 'open' }] }],
+        columns: [], platforms: [], balconies: [], source: [2.5, 2.0, 1.5], receiver: [9.0, 1.6, 1.4], facing: [-1, 0.5, 0], env: { T: 20, RH: 50, grad: 0 } };
+    }
+  },
+  round: {
+    name: '원형 홀 (지름 16 m, 둥근 벽)', note: '둥근 벽은 소리를 한 점에 모읍니다(집속). 가운데와 가장자리에서 들어 보세요.',
+    spec: () => {
+      const r = 8, b = Math.tan(Math.PI / 8);
+      const L = [[r, 0], [0, r], [-r, 0], [0, -r]].map(([x, y]) => W(x + 8.5, y + 8.5, 'plaster', 0.3, { bulge: b }));
+      return { loop: L, ceiling: { type: 'flat', h: 6, rise: 0, axis: 0, mat: 'plaster' }, floorMat: 'marble', partitions: [], columns: [], platforms: [], balconies: [],
+        source: [5.5, 8.5, 1.6], receiver: [11.5, 8.5, 1.6], facing: [-1, 0, 0], env: { T: 20, RH: 50, grad: 0 } };
+    }
+  },
+  booth: {
+    name: '녹음 부스 (3 × 2.5 m)', note: '작은 방을 흡음재로 처리한 녹음 부스.',
+    spec: () => {
+      const L = rectLoop(0, 0, 3.2, 2.7, 'rockwool_panel', 0.2); L[0].mat = 'plaster';
+      L[2].openings = [{ t0: 0.6, t1: 0.88, z0: 0, z1: 2.0, kind: 'door', mat: 'wood_door' }];
+      return { loop: L, ceiling: { type: 'flat', h: 2.5, rise: 0, axis: 0, mat: 'melamine_foam' }, floorMat: 'carpet_thick', partitions: [], columns: [], platforms: [], balconies: [],
+        source: [0.9, 1.25, 1.5], receiver: [2.2, 1.3, 1.5], facing: [-1, 0, 0], env: { T: 21, RH: 45, grad: 0 } };
+    }
+  }
+};
+
+// ------------------------------------------------------------------ state
+const S = window.__app = {
+  presetId: 'lecture', spec: null, sel: null, tool: 'select', view: 'split', tab: 'build',
+  result: null, stale: true, computing: false, simId: 0, undo: [], redo: [],
+  ab: 'sim', sound: 'speech', wave: null,
+  pickTarget: null, // 'ceiling' | 'floor' when picking those materials
+  challenge: null
+};
+function loadPreset(id, keepUndo) {
+  S.challenge = null; S.presetId = id; S.specEpoch = (S.specEpoch || 0) + 1; S.spec = PRESETS[id].spec(); S.sel = null; S.result = null; S.stale = true; S.wave = null;
+  if (!keepUndo) { S.undo = []; S.redo = []; }
+  $('#preset').value = id; $('#presetNote').textContent = PRESETS[id].note;
+  syncControls(); specChanged(true); fitPlan(); fit3D();
+  $('#abMeas').disabled = !S.spec.measured;
+  if (!S.spec.measured && S.ab === 'meas') setAB('sim');
+}
+function pushUndo() { S.undo.push(JSON.stringify(S.spec)); if (S.undo.length > 80) S.undo.shift(); S.redo = []; }
+function doUndo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.spec)); S.spec = JSON.parse(S.undo.pop()); S.sel = null; syncControls(); specChanged(); }
+function doRedo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.spec)); S.spec = JSON.parse(S.redo.pop()); S.sel = null; syncControls(); specChanged(); }
+
+let mesh = null, meshErr = null;
+function loopSelfIntersects() {
+  const L = S.spec.loop, pts = []; L.forEach((w, i) => { const b = L[(i + 1) % L.length]; arcPoints([w.x, w.y], [b.x, b.y], w.bulge || 0, Math.abs(w.bulge || 0) > 1e-4 ? 12 : 1).slice(0, -1).forEach(p => pts.push(p)); });
+  const n = pts.length, o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  const X = (a, b, c, d) => o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; if (X(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) return true; }
+  return false;
+}
+function rebuildMesh() {
+  try { if (loopSelfIntersects()) throw new Error('SELF'); mesh = SA.buildMesh(S.spec); meshErr = null; } catch (e) { meshErr = e; if (e.message !== 'SELF') console.error(e); }
+  const w = $('#planWarn');
+  if (meshErr) { w.hidden = false; w.textContent = meshErr.message === 'SELF' ? '벽이 서로 교차합니다. 꼭짓점(네모)을 옮기거나 되돌리기로 방 모양을 바로잡아 주세요. 이 상태로는 계산할 수 없습니다.' : '벽 모양을 만들 수 없습니다: ' + meshErr.message; }
+  else w.hidden = true;
+}
+let threeTimer = 0;
+function specChanged(immediate) {
+  rebuildMesh();
+  S.stale = true; S.wave = null;
+  if ($('#status').classList.contains('err') && !S.computing) status(meshErr ? '벽 모양을 바로잡아 주세요.' : '공간이 바뀌었습니다. ‘소리 계산’을 누르면 새로 계산합니다.', !!meshErr);
+  drawPlan(); renderSel(); updateChips();
+  clearTimeout(threeTimer);
+  if (immediate) build3D(); else threeTimer = setTimeout(build3D, 120);
+  store.set('sa.last', JSON.stringify({ presetId: S.presetId, spec: S.spec }));
+}
+
+// ------------------------------------------------------------------ tools
+const ICON = {
+  select: '<path d="M4 3l12 7-5 1.5L13 17l-2.5 1-2-5.5L4 16z" fill="currentColor"/>',
+  partition: '<rect x="3" y="9" width="14" height="3" fill="currentColor"/><path d="M3 9l3 3M7 9l3 3M11 9l3 3" stroke="#fff" stroke-width="1"/>',
+  door: '<path d="M4 17h12M5 17V6l7-2v13" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="11" r="1" fill="currentColor"/>',
+  window: '<rect x="3" y="5" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5v10M3 10h14" stroke="currentColor" stroke-width="1.2"/>',
+  column: '<circle cx="10" cy="10" r="5" fill="currentColor"/>',
+  platform: '<path d="M3 13l7-4 7 4-7 4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 13v2l7 4 7-4v-2" fill="none" stroke="currentColor" stroke-width="1.2"/>',
+  balcony: '<path d="M3 8h14v3H3z" fill="currentColor"/><path d="M5 11v6M15 11v6" stroke="currentColor" stroke-width="1.4"/>',
+  erase: '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2"/>'
+};
+const TOOLS = [
+  ['select', '선택 · 이동', '요소를 눌러 선택하고 끌어서 옮깁니다. 벽 모서리의 네모를 끌면 방 모양이 바뀌고, 벽 가운데 ＋를 누르면 꼭짓점이 생기며, ＋를 옆으로 끌면 벽이 둥글게 휩니다. 빈 곳을 끌면 화면이 움직입니다.'],
+  ['partition', '칸막이', '시작점에서 끝점까지 끌어서 방 안에 칸막이 벽을 세웁니다.'],
+  ['door', '문', '벽(곧은 벽)을 누르면 그 자리에 문이 뚫립니다.'],
+  ['window', '창', '벽(곧은 벽)을 누르면 그 자리에 창문이 생깁니다.'],
+  ['column', '기둥', '누른 자리에 기둥을 세웁니다.'],
+  ['platform', '단 · 가구', '끌어서 네모난 단(무대, 객석 단, 책상, 소파 등)을 만듭니다.'],
+  ['balcony', '발코니', '끌어서 공중에 뜬 발코니 바닥을 만듭니다.'],
+  ['erase', '지우기', '지울 요소를 누르세요.']
+];
+function renderTools() {
+  $('#tools').innerHTML = TOOLS.map(([id, name]) => `<button class="tool" data-tool="${id}" aria-pressed="${S.tool === id}" title="${name}"><svg viewBox="0 0 20 20" aria-hidden="true">${ICON[id]}</svg><span class="tl">${name}</span></button>`).join('');
+  $$('#tools .tool').forEach(b => b.onclick = () => { S.tool = b.dataset.tool; renderTools(); });
+  const tl = TOOLS.find(t => t[0] === S.tool); $('#hint').textContent = (innerWidth < 900 ? `[${tl[1]}] ` : '') + tl[2] + (innerWidth < 900 ? '' : '  (Ctrl+Z 되돌리기 · Delete 지우기)');
+}
+
+// ------------------------------------------------------------------ PLAN EDITOR (2D canvas)
+const plan = $('#plan'); const pctx = plan.getContext('2d');
+const V = { s: 40, ox: 40, oy: 40, w: 0, h: 0, dpr: 1 };
+const w2s = (x, y) => [V.ox + x * V.s, V.oy - y * V.s]; // V.oy = screen y of world y=0 (top-anchored: canvas height changes never move the drawing)
+const s2w = (px, py) => [(px - V.ox) / V.s, (V.oy - py) / V.s];
+function resizePlan() {
+  const r = plan.getBoundingClientRect(); V.dpr = Math.min(window.devicePixelRatio || 1, 3);
+  V.w = r.width; V.h = r.height; plan.width = Math.max(1, Math.round(r.width * V.dpr)); plan.height = Math.max(1, Math.round(r.height * V.dpr));
+}
+function fitPlan() {
+  resizePlan(); if (!mesh) return;
+  const xs = mesh.outer.map(p => p[0]), ys = mesh.outer.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const pad = 36, top = S.challenge ? 70 : 0; V.s = Math.max(4, Math.min((V.w - 2 * pad) / (x1 - x0 || 1), (V.h - 2 * pad - 30 - top) / (y1 - y0 || 1)));
+  V.ox = (V.w - (x1 - x0) * V.s) / 2 - x0 * V.s; V.oy = (V.h + top + (y1 - y0) * V.s) / 2 + y0 * V.s + 10;
+  drawPlan();
+}
+let hatch = null;
+function hatchPattern() {
+  const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d');
+  g.fillStyle = '#d8d0bf'; g.fillRect(0, 0, 8, 8); g.strokeStyle = '#7d7462'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 8); g.lineTo(8, 0); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); g.stroke();
+  return pctx.createPattern(c, 'repeat');
+}
+function wallSegs() { // original loop walls with geometry (straight or arc flag)
+  const L = S.spec.loop; return L.map((w, i) => ({ i, a: [w.x, w.y], b: [L[(i + 1) % L.length].x, L[(i + 1) % L.length].y], w, arc: Math.abs(w.bulge || 0) > 1e-4 }));
+}
+function arcPoints(a, b, bulge, n) {
+  if (Math.abs(bulge) < 1e-4) return [a, b];
+  const dx = b[0] - a[0], dy = b[1] - a[1], ch = Math.hypot(dx, dy), th = 4 * Math.atan(bulge), r = ch / (2 * Math.sin(th / 2));
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, nx = dy / ch, ny = -dx / ch, d = r * Math.cos(th / 2);
+  const cx = mx - nx * d, cy = my - ny * d, a0 = Math.atan2(a[1] - cy, a[0] - cx), pts = [];
+  for (let k = 0; k <= n; k++) { const an = a0 - th * k / n; pts.push([cx + Math.abs(r) * Math.cos(an) * Math.sign(r), cy + Math.abs(r) * Math.sin(an) * Math.sign(r)]); }
+  return pts;
+}
+function polyPath(g, pts) { pts.forEach((p, i) => { const q = w2s(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); }
+function drawPlan() {
+  if (!V.w) resizePlan();
+  const g = pctx; g.setTransform(V.dpr, 0, 0, V.dpr, 0, 0);
+  g.fillStyle = '#f3efe6'; g.fillRect(0, 0, V.w, V.h);
+  // grid
+  const [wx0, wy1] = s2w(0, 0), [wx1, wy0] = s2w(V.w, V.h);
+  const step = V.s < 12 ? 5 : 1;
+  g.lineWidth = 1;
+  for (let x = Math.floor(wx0 / step) * step; x <= wx1; x += step) { const p = w2s(x, 0)[0]; g.strokeStyle = x % (step * 5) === 0 ? '#ddd5c3' : '#e8e2d4'; g.beginPath(); g.moveTo(p + .5, 0); g.lineTo(p + .5, V.h); g.stroke(); }
+  for (let y = Math.floor(wy0 / step) * step; y <= wy1; y += step) { const p = w2s(0, y)[1]; g.strokeStyle = y % (step * 5) === 0 ? '#ddd5c3' : '#e8e2d4'; g.beginPath(); g.moveTo(0, p + .5); g.lineTo(V.w, p + .5); g.stroke(); }
+  if (meshErr || !mesh) { g.strokeStyle = '#a1252c'; g.lineWidth = 2.5; g.beginPath(); polyPath(g, S.spec.loop.map(w => [w.x, w.y])); g.stroke(); if (S.tool === 'select') wallSegs().forEach(sg => { const [x, y] = w2s(sg.a[0], sg.a[1]); g.fillStyle = '#fff'; g.strokeStyle = '#a1252c'; g.fillRect(x - 5, y - 5, 10, 10); g.strokeRect(x - 5, y - 5, 10, 10); }); drawSource(g); drawReceiver(g); return; }
+  // floor fill
+  g.fillStyle = '#fbf9f4'; g.beginPath(); polyPath(g, mesh.inner); g.fill();
+  // platforms & balconies
+  (S.spec.platforms || []).forEach((p, k) => {
+    g.fillStyle = matColor(p.topMat || p.mat, 0.35); g.strokeStyle = '#4a5059'; g.lineWidth = isSel('platform', k) ? 2.5 : 1;
+    g.beginPath(); polyPath(g, p.poly); g.fill(); g.stroke();
+    { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); const wpx = (Math.max(...xs) - Math.min(...xs)) * V.s, hpx = (Math.max(...ys) - Math.min(...ys)) * V.s; if (wpx > 64 && hpx > 20) labelAt(centroid(p.poly), `단 ${fmt(p.h, 2)} m`); }
+  });
+  // wave overlay (under walls)
+  if (S.wave && S.wave.frame) drawWave(g);
+  // walls poché
+  if (!hatch) hatch = hatchPattern();
+  g.fillStyle = hatch; g.beginPath(); polyPath(g, mesh.outer); polyPath(g, mesh.inner.slice().reverse()); g.fill('evenodd');
+  g.strokeStyle = '#1d2126'; g.lineWidth = 1.4; g.beginPath(); polyPath(g, mesh.outer); g.stroke(); g.beginPath(); polyPath(g, mesh.inner); g.stroke();
+  // wall material stripe on inner face + selection
+  wallSegs().forEach(sg => {
+    const pts = arcPoints(sg.a, sg.b, sg.w.bulge || 0, 24);
+    g.strokeStyle = matColor(sg.w.mat, 1); g.lineWidth = isSel('wall', sg.i) ? 7 : 4; g.globalAlpha = isSel('wall', sg.i) ? 1 : 0.85;
+    g.beginPath(); pts.forEach((p, k) => { const q = w2s(...insetPoint(p, sg, (sg.w.thick || 0.2) / 2 - 0.02)); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); g.globalAlpha = 1;
+    if (isSel('wall', sg.i)) { g.strokeStyle = '#b8481f'; g.lineWidth = 2; g.setLineDash([5, 4]); g.beginPath(); pts.forEach((p, k) => { const q = w2s(p[0], p[1]); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); g.setLineDash([]); }
+    (sg.w.openings || []).forEach((op, oi) => drawOpening(g, sg.a, sg.b, sg.w.thick || 0.2, op, isSel('opening', sg.i + ':' + oi)));
+  });
+  // partitions
+  (S.spec.partitions || []).forEach((pw, k) => {
+    const d = norm2(sub2(pw.b, pw.a)), n = [-d[1], d[0]], t = (pw.thick || 0.15) / 2;
+    const q = [add2(pw.a, mul2(n, t)), add2(pw.b, mul2(n, t)), add2(pw.b, mul2(n, -t)), add2(pw.a, mul2(n, -t))];
+    g.fillStyle = hatch; g.beginPath(); polyPath(g, q); g.fill(); g.strokeStyle = isSel('partition', k) ? '#b8481f' : '#1d2126'; g.lineWidth = isSel('partition', k) ? 2.5 : 1.3; g.stroke();
+    (pw.openings || []).forEach((op, oi) => drawOpening(g, pw.a, pw.b, pw.thick || 0.15, op, isSel('popening', k + ':' + oi)));
+    if (pw.h > 0) labelAt([(pw.a[0] + pw.b[0]) / 2 + n[0] * 0.5, (pw.a[1] + pw.b[1]) / 2 + n[1] * 0.5], `높이 ${fmt(pw.h, 1)} m`);
+  });
+  // columns
+  (S.spec.columns || []).forEach((c, k) => {
+    const [x, y] = w2s(c.x, c.y), r = (c.r || 0.25) * V.s;
+    g.fillStyle = '#4a5059'; g.strokeStyle = isSel('column', k) ? '#b8481f' : '#1d2126'; g.lineWidth = isSel('column', k) ? 3 : 1;
+    g.beginPath(); if (c.shape === 'square') g.rect(x - r, y - r, 2 * r, 2 * r); else g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); g.stroke();
+  });
+  (S.spec.balconies || []).forEach((b, k) => {
+    g.setLineDash([6, 4]); g.strokeStyle = isSel('balcony', k) ? '#b8481f' : '#1d2126'; g.lineWidth = isSel('balcony', k) ? 2.5 : 1.3;
+    g.fillStyle = 'rgba(29,33,38,0.06)'; g.beginPath(); polyPath(g, b.poly); g.fill(); g.stroke(); g.setLineDash([]);
+    { const xs = b.poly.map(q => q[0]); if ((Math.max(...xs) - Math.min(...xs)) * V.s > 110) labelAt(centroid(b.poly), `발코니 · 높이 ${fmt(b.z, 1)} m`); }
+  });
+  // reflection paths (plan projection)
+  if (S.result && !S.stale && !S.wave && $('#tPaths').getAttribute('aria-pressed') === 'true') {
+    S.result.paths.slice(0, 60).forEach(p => {
+      g.strokeStyle = p.df ? 'rgba(31,107,102,.9)' : p.o === 0 ? 'rgba(29,33,38,.7)' : p.o === 1 ? 'rgba(184,72,31,.55)' : 'rgba(168,107,0,.35)';
+      g.lineWidth = p.o === 0 || p.df ? 1.6 : 1; if (p.df) g.setLineDash([4, 3]);
+      g.beginPath(); p.p.forEach((pt, k) => { const q = w2s(pt[0], pt[1]); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); g.setLineDash([]);
+    });
+  }
+  // handles for loop vertices (select tool)
+  if (S.tool === 'select') {
+    wallSegs().forEach(sg => {
+      const [x, y] = w2s(sg.a[0], sg.a[1]); g.fillStyle = '#fff'; g.strokeStyle = '#1d2126'; g.lineWidth = 1.5; g.fillRect(x - 5, y - 5, 10, 10); g.strokeRect(x - 5, y - 5, 10, 10);
+      const m = midHandle(sg); const [mx, my] = w2s(m[0], m[1]);
+      g.strokeStyle = '#1f6b66'; g.lineWidth = 2; g.beginPath(); g.moveTo(mx - 5, my); g.lineTo(mx + 5, my); g.moveTo(mx, my - 5); g.lineTo(mx, my + 5); g.stroke();
+    });
+  }
+  // dimensions of selected wall
+  if (S.sel && S.sel.type === 'wall') { const sg = wallSegs()[S.sel.i]; if (sg) { let len = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]); const noArc = S.spec.loop.every(w => Math.abs(w.bulge || 0) < 1e-4); if (noArc && mesh.inner.length === S.spec.loop.length) { const n = S.spec.loop.length, ccw = SA.polyArea(S.spec.loop.map(w => [w.x, w.y])) > 0, i = ccw ? sg.i : (n - 1 - sg.i); const p = mesh.inner[i], q = mesh.inner[(i + 1) % n]; len = Math.hypot(q[0] - p[0], q[1] - p[1]); } labelAt([(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2], `안쪽 ${fmt(len, 2)} m`, '#b8481f'); } }
+  // draft (drag-to-create)
+  if (drag && drag.kind === 'create') {
+    g.strokeStyle = '#b8481f'; g.lineWidth = 2; g.setLineDash([5, 4]);
+    const a = w2s(...drag.w0), b = w2s(...drag.w1);
+    if (drag.tool === 'partition') { g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); labelAt([(drag.w0[0] + drag.w1[0]) / 2, (drag.w0[1] + drag.w1[1]) / 2], `${fmt(Math.hypot(drag.w1[0] - drag.w0[0], drag.w1[1] - drag.w0[1]), 2)} m`, '#b8481f'); }
+    else { g.strokeRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); }
+    g.setLineDash([]);
+  }
+  // source & receiver
+  drawSource(g); drawReceiver(g);
+  // scale bar
+  const sb = V.s >= 30 ? 1 : V.s >= 8 ? 5 : 10; g.fillStyle = '#1d2126'; g.fillRect(12, V.h - 46, sb * V.s, 3); g.font = '11px sans-serif'; g.fillText(`${sb} m`, 12, V.h - 52);
+}
+function insetPoint(p, sg, off) { // move p toward room interior (left of CCW loop) — approximate with polygon orientation
+  const ccw = SA.polyArea(S.spec.loop.map(w => [w.x, w.y])) > 0;
+  const d = norm2(sub2(sg.b, sg.a)); const n = ccw ? [-d[1], d[0]] : [d[1], -d[0]];
+  if (sg.arc) { // radial: toward the polygon centroid
+    const c = centroid(S.spec.loop.map(w => [w.x, w.y])); const v = norm2(sub2(c, p)); return add2(p, mul2(v, off));
+  }
+  return add2(p, mul2(n, off));
+}
+function drawOpening(g, a, b, thick, op, sel) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const d = norm2(sub2(b, a)), n = [-d[1], d[0]], t = thick / 2 + 0.01;
+  const p0 = add2(a, mul2(d, op.t0 * L)), p1 = add2(a, mul2(d, op.t1 * L));
+  const q = [add2(p0, mul2(n, t)), add2(p1, mul2(n, t)), add2(p1, mul2(n, -t)), add2(p0, mul2(n, -t))];
+  g.fillStyle = '#f3efe6'; g.beginPath(); polyPath(g, q); g.fill();
+  g.strokeStyle = sel ? '#b8481f' : '#1d2126'; g.lineWidth = sel ? 2.5 : 1.2;
+  if (op.kind === 'window') {
+    g.beginPath(); polyPath(g, q); g.stroke(); const m0 = w2s(...p0), m1 = w2s(...p1); g.beginPath(); g.moveTo(...m0); g.lineTo(...m1); g.stroke();
+  } else {
+    // door: jamb lines + leaf + swing arc (into the room side n)
+    const j0a = w2s(...q[0]), j0b = w2s(...q[3]), j1a = w2s(...q[1]), j1b = w2s(...q[2]);
+    g.beginPath(); g.moveTo(...j0a); g.lineTo(...j0b); g.moveTo(...j1a); g.lineTo(...j1b); g.stroke();
+    if (op.mat !== 'open') {
+      const w = (op.t1 - op.t0) * L, hinge = add2(p0, mul2(n, t)), tip = add2(hinge, mul2(n, w));
+      g.beginPath(); g.moveTo(...w2s(...hinge)); g.lineTo(...w2s(...tip)); g.stroke();
+      g.setLineDash([3, 3]); g.beginPath(); const hs = w2s(...hinge); const ang0 = Math.atan2(-(n[1]), n[0]), ang1 = Math.atan2(-(d[1]), d[0]);
+      g.arc(hs[0], hs[1], w * V.s, Math.min(ang0, ang1), Math.max(ang0, ang1)); g.stroke(); g.setLineDash([]);
+    }
+  }
+}
+function drawSource(g) {
+  const [x, y] = w2s(S.spec.source[0], S.spec.source[1]);
+  g.fillStyle = '#b8481f'; g.beginPath(); g.arc(x, y, 9, 0, 2 * Math.PI); g.fill();
+  g.strokeStyle = '#b8481f'; g.lineWidth = 1.6; for (let k = 1; k <= 2; k++) { g.beginPath(); g.arc(x, y, 9 + k * 5, -0.6, 0.6); g.stroke(); g.beginPath(); g.arc(x, y, 9 + k * 5, Math.PI - 0.6, Math.PI + 0.6); g.stroke(); }
+  g.fillStyle = '#fff'; g.font = 'bold 10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('S', x, y + .5); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+function drawReceiver(g) {
+  const [x, y] = w2s(S.spec.receiver[0], S.spec.receiver[1]); const f = S.spec.facing || [1, 0, 0]; const a = Math.atan2(-f[1], f[0]);
+  g.fillStyle = '#1f6b66'; g.beginPath(); g.arc(x, y, 9, 0, 2 * Math.PI); g.fill();
+  g.beginPath(); g.moveTo(x + Math.cos(a) * 15, y + Math.sin(a) * 15); g.lineTo(x + Math.cos(a + 0.5) * 9, y + Math.sin(a + 0.5) * 9); g.lineTo(x + Math.cos(a - 0.5) * 9, y + Math.sin(a - 0.5) * 9); g.fill();
+  g.fillStyle = '#fff'; g.font = 'bold 10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('R', x, y + .5); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+function labelAt(p, txt, col) {
+  const [x, y] = w2s(p[0], p[1]); const g = pctx; g.font = '11px sans-serif'; const w = g.measureText(txt).width + 8;
+  g.fillStyle = 'rgba(251,249,244,.92)'; g.fillRect(x - w / 2, y - 8, w, 16); g.fillStyle = col || '#4a5059'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, x, y); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+function drawWave(g) {
+  const W = S.wave, fr = W.frame, gr = W.grid; if (!W.img) { W.cv = document.createElement('canvas'); W.cv.width = gr.nx; W.cv.height = gr.ny; W.cx = W.cv.getContext('2d'); W.img = W.cx.createImageData(gr.nx, gr.ny); }
+  const d = W.img.data, sc = W.scale;
+  for (let j = 0; j < gr.ny; j++) for (let i = 0; i < gr.nx; i++) {
+    const v = fr[j * gr.nx + i], o = ((gr.ny - 1 - j) * gr.nx + i) * 4;
+    if (!isFinite(v)) { d[o + 3] = 0; continue; }
+    const u = Math.max(-1, Math.min(1, v / sc)), m = Math.sqrt(Math.abs(u));
+    if (u >= 0) { d[o] = 255; d[o + 1] = 255 - 160 * m; d[o + 2] = 255 - 200 * m; } else { d[o] = 255 - 210 * m; d[o + 1] = 255 - 120 * m; d[o + 2] = 255 - 110 * m; }
+    d[o + 3] = 235;
+  }
+  W.cx.putImageData(W.img, 0, 0);
+  const [x0, y1] = w2s(gr.ox - gr.dx / 2, gr.oy - gr.dx / 2), [x1, y0] = w2s(gr.ox + (gr.nx - 0.5) * gr.dx, gr.oy + (gr.ny - 0.5) * gr.dx);
+  g.imageSmoothingEnabled = true; g.drawImage(W.cv, x0, y0, x1 - x0, y1 - y0);
+  labelAt(s2w(V.w / 2, 18), `파동 ${(W.t * 1000).toFixed(0)} ms · 빨강 = 압력 높음, 파랑 = 압력 낮음`, '#1d2126');
+}
+// geometry helpers
+const sub2 = (a, b) => [a[0] - b[0], a[1] - b[1]], add2 = (a, b) => [a[0] + b[0], a[1] + b[1]], mul2 = (a, s) => [a[0] * s, a[1] * s];
+const norm2 = a => { const l = Math.hypot(a[0], a[1]) || 1; return [a[0] / l, a[1] / l]; };
+const centroid = P => [P.reduce((s, p) => s + p[0], 0) / P.length, P.reduce((s, p) => s + p[1], 0) / P.length];
+function midHandle(sg) { const pts = arcPoints(sg.a, sg.b, sg.w.bulge || 0, 2); return pts.length === 3 ? pts[1] : [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]; }
+function segDist(p, a, b) { const d = sub2(b, a), L2 = d[0] * d[0] + d[1] * d[1] || 1; let t = ((p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1]) / L2; t = Math.max(0, Math.min(1, t)); const q = add2(a, mul2(d, t)); return [Math.hypot(p[0] - q[0], p[1] - q[1]), t]; }
+function matColor(id, alpha) { const m = MATBY[id]; const c = m ? m.color : '#999'; if (alpha == null || alpha >= 1) return c; const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16); return `rgba(${r},${g},${b},${alpha})`; }
+const isSel = (type, i) => S.sel && S.sel.type === type && S.sel.i === i;
+const snap = (v, e) => e && e.altKey ? v : Math.round(v * 10) / 10;
+
+// hit testing in world coords
+function hitTest(w) {
+  const tol = 10 / V.s;
+  const near = (p, r) => Math.hypot(w[0] - p[0], w[1] - p[1]) < r;
+  if (near(S.spec.source, 14 / V.s)) return { type: 'source' };
+  if (near(S.spec.receiver, 14 / V.s)) return { type: 'receiver' };
+  if (S.tool === 'select') {
+    const segs = wallSegs();
+    for (const sg of segs) if (near(sg.a, 9 / V.s)) return { type: 'vertex', i: sg.i };
+    for (const sg of segs) if (near(midHandle(sg), 9 / V.s)) return { type: 'mid', i: sg.i };
+  }
+  for (const sg of wallSegs()) { if (sg.arc) continue; const L = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]); const [dd, t] = segDist(w, sg.a, sg.b); if (dd < (sg.w.thick || 0.2) / 2 + tol) { const oi = (sg.w.openings || []).findIndex(o => t >= o.t0 && t <= o.t1); if (oi >= 0) return { type: 'opening', i: sg.i + ':' + oi, wall: sg.i, oi }; } }
+  for (let k = 0; k < (S.spec.partitions || []).length; k++) { const pw = S.spec.partitions[k]; const [dd, t] = segDist(w, pw.a, pw.b); if (dd < (pw.thick || 0.15) / 2 + tol) { const oi = (pw.openings || []).findIndex(o => t >= o.t0 && t <= o.t1); if (oi >= 0) return { type: 'popening', i: k + ':' + oi, part: k, oi }; } }
+  for (let k = 0; k < (S.spec.columns || []).length; k++) { const c = S.spec.columns[k]; if (near([c.x, c.y], (c.r || 0.25) + tol)) return { type: 'column', i: k }; }
+  for (let k = 0; k < (S.spec.partitions || []).length; k++) { const pw = S.spec.partitions[k]; if (near(pw.a, 9 / V.s)) return { type: 'pend', i: k, end: 'a' }; if (near(pw.b, 9 / V.s)) return { type: 'pend', i: k, end: 'b' }; const [dd] = segDist(w, pw.a, pw.b); if (dd < (pw.thick || 0.15) / 2 + tol) return { type: 'partition', i: k }; }
+  for (const sg of wallSegs()) {
+    if (sg.arc) { const pts = arcPoints(sg.a, sg.b, sg.w.bulge, 24); for (let k = 0; k < pts.length - 1; k++) if (segDist(w, pts[k], pts[k + 1])[0] < (sg.w.thick || 0.2) / 2 + tol) return { type: 'wall', i: sg.i, t: null }; }
+    else { const [dd, t] = segDist(w, sg.a, sg.b); if (dd < (sg.w.thick || 0.2) / 2 + tol) return { type: 'wall', i: sg.i, t }; }
+  }
+  for (let k = (S.spec.balconies || []).length - 1; k >= 0; k--) if (SA.pointInPoly(w, S.spec.balconies[k].poly)) return { type: 'balcony', i: k };
+  for (let k = (S.spec.platforms || []).length - 1; k >= 0; k--) if (SA.pointInPoly(w, S.spec.platforms[k].poly)) return { type: 'platform', i: k };
+  return null;
+}
+let drag = null; const pointers = new Map();
+plan.addEventListener('pointerdown', e => {
+  plan.setPointerCapture(e.pointerId); pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+  if (pointers.size === 2) { const [p, q] = [...pointers.values()]; drag = { kind: 'pinch', d0: Math.hypot(p[0] - q[0], p[1] - q[1]), s0: V.s, ox0: V.ox, oy0: V.oy, c: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }; return; }
+  const w = s2w(e.offsetX, e.offsetY); const h = hitTest(w);
+  const ws = [snap(w[0], e), snap(w[1], e)];
+  if (h && (h.type === 'source' || h.type === 'receiver')) { pushUndo(); drag = { kind: 'move', h, w0: w, orig: clone(S.spec) }; return; }
+  switch (S.tool) {
+    case 'select':
+      if (!h) { drag = { kind: 'pan', p0: [e.offsetX, e.offsetY], o0: [V.ox, V.oy] }; S.sel = null; renderSel(); drawPlan(); return; }
+      pushUndo();
+      if (h.type === 'mid') { drag = { kind: 'mid', h, w0: w, moved: false }; return; }
+      S.sel = selFromHit(h); renderSel();
+      drag = { kind: 'move', h, w0: w, orig: clone(S.spec), moved: false }; drawPlan(); return;
+    case 'erase': if (h) { pushUndo(); eraseHit(h); } return;
+    case 'door': case 'window': {
+      if (h && h.type === 'wall' && h.t != null) { pushUndo(); addOpening(S.spec.loop[h.i], h.t, S.tool, wallLen(h.i)); S.sel = { type: 'opening', i: h.i + ':' + (S.spec.loop[h.i].openings.length - 1) }; specChanged(); }
+      else if (h && h.type === 'partition') { pushUndo(); const pw = S.spec.partitions[h.i]; const [, t] = segDist(w, pw.a, pw.b); pw.openings = pw.openings || []; addOpening(pw, t, S.tool, Math.hypot(pw.b[0] - pw.a[0], pw.b[1] - pw.a[1])); S.sel = { type: 'popening', i: h.i + ':' + (pw.openings.length - 1) }; specChanged(); }
+      else flash('곧은 벽이나 칸막이 위를 누르세요. (둥근 벽에는 문을 낼 수 없습니다)');
+      return;
+    }
+    case 'column': pushUndo(); S.spec.columns.push({ x: ws[0], y: ws[1], r: 0.25, shape: 'round', mat: 'concrete' }); S.sel = { type: 'column', i: S.spec.columns.length - 1 }; specChanged(); return;
+    case 'partition': case 'platform': case 'balcony': drag = { kind: 'create', tool: S.tool, w0: ws, w1: ws }; return;
+  }
+});
+plan.addEventListener('pointermove', e => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+  if (!drag) { const h = hitTest(s2w(e.offsetX, e.offsetY)); plan.style.cursor = h ? (h.type === 'vertex' || h.type === 'source' || h.type === 'receiver' || h.type === 'mid' ? 'grab' : 'pointer') : (S.tool === 'select' ? 'default' : 'crosshair'); return; }
+  const w = s2w(e.offsetX, e.offsetY);
+  if (drag.kind === 'pinch' && pointers.size === 2) { const [p, q] = [...pointers.values()]; const f = Math.hypot(p[0] - q[0], p[1] - q[1]) / drag.d0; zoomAt(drag.c[0], drag.c[1], drag.s0 * f / V.s); drawPlan(); return; }
+  if (drag.kind === 'pan') { V.ox = drag.o0[0] + (e.offsetX - drag.p0[0]); V.oy = drag.o0[1] + (e.offsetY - drag.p0[1]); drawPlan(); return; }
+  if (drag.kind === 'create') { drag.w1 = [snap(w[0], e), snap(w[1], e)]; drawPlan(); return; }
+  if (drag.kind === 'mid') { // drag mid handle sideways -> bulge
+    const sg = wallSegs()[drag.h.i]; const ch = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]); const d = norm2(sub2(sg.b, sg.a)); const nR = [d[1], -d[0]];
+    const m = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]; const sag = (w[0] - m[0]) * nR[0] + (w[1] - m[1]) * nR[1];
+    if (Math.abs(sag) > 0.15 || drag.moved) { drag.moved = true; const ccw = SA.polyArea(S.spec.loop.map(q => [q.x, q.y])) > 0; let b = 2 * sag / ch; b = Math.max(-1, Math.min(1, b)); if (Math.abs(b) < 0.03) b = 0; S.spec.loop[drag.h.i].bulge = ccw ? b : b; (S.spec.loop[drag.h.i].openings || []).length = 0; specChanged(); }
+    return;
+  }
+  if (drag.kind === 'move') {
+    const dx = w[0] - drag.w0[0], dy = w[1] - drag.w0[1]; const o = drag.orig, s = S.spec, h = drag.h;
+    if (Math.hypot(dx, dy) * V.s < 2 && !drag.moved) return; drag.moved = true;
+    const sx = v => snap(v, e);
+    switch (h.type) {
+      case 'source': s.source[0] = sx(o.source[0] + dx); s.source[1] = sx(o.source[1] + dy); break;
+      case 'receiver': s.receiver[0] = sx(o.receiver[0] + dx); s.receiver[1] = sx(o.receiver[1] + dy); break;
+      case 'vertex': s.loop[h.i].x = sx(o.loop[h.i].x + dx); s.loop[h.i].y = sx(o.loop[h.i].y + dy); break;
+      case 'wall': if (h.t != null) { const n = s.loop.length, j = (h.i + 1) % n; s.loop[h.i].x = sx(o.loop[h.i].x + dx); s.loop[h.i].y = sx(o.loop[h.i].y + dy); s.loop[j].x = sx(o.loop[j].x + dx); s.loop[j].y = sx(o.loop[j].y + dy); } break;
+      case 'column': s.columns[h.i].x = sx(o.columns[h.i].x + dx); s.columns[h.i].y = sx(o.columns[h.i].y + dy); break;
+      case 'partition': ['a', 'b'].forEach(k => { s.partitions[h.i][k] = [sx(o.partitions[h.i][k][0] + dx), sx(o.partitions[h.i][k][1] + dy)]; }); break;
+      case 'pend': s.partitions[h.i][h.end] = [sx(o.partitions[h.i][h.end][0] + dx), sx(o.partitions[h.i][h.end][1] + dy)]; break;
+      case 'platform': s.platforms[h.i].poly = o.platforms[h.i].poly.map(p => [sx(p[0] + dx), sx(p[1] + dy)]); break;
+      case 'balcony': s.balconies[h.i].poly = o.balconies[h.i].poly.map(p => [sx(p[0] + dx), sx(p[1] + dy)]); break;
+      case 'opening': { const sg = wallSegs()[h.wall]; const L = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]); const op0 = o.loop[h.wall].openings[h.oi]; const d = norm2(sub2(sg.b, sg.a)); const dt = (dx * d[0] + dy * d[1]) / L; const wdt = op0.t1 - op0.t0; let t0 = Math.max(0.02, Math.min(0.98 - wdt, op0.t0 + dt)); s.loop[h.wall].openings[h.oi].t0 = t0; s.loop[h.wall].openings[h.oi].t1 = t0 + wdt; break; }
+      case 'popening': { const pw = s.partitions[h.part]; const L = Math.hypot(pw.b[0] - pw.a[0], pw.b[1] - pw.a[1]); const op0 = o.partitions[h.part].openings[h.oi]; const d = norm2(sub2(pw.b, pw.a)); const dt = (dx * d[0] + dy * d[1]) / L; const wdt = op0.t1 - op0.t0; let t0 = Math.max(0.0, Math.min(1 - wdt, op0.t0 + dt)); pw.openings[h.oi].t0 = t0; pw.openings[h.oi].t1 = t0 + wdt; break; }
+    }
+    specChanged(); return;
+  }
+});
+plan.addEventListener('pointerup', e => {
+  pointers.delete(e.pointerId);
+  if (!drag) return;
+  const w = s2w(e.offsetX, e.offsetY);
+  if (drag.kind === 'mid' && !drag.moved) { // click on + inserts a vertex at the midpoint
+    const sg = wallSegs()[drag.h.i]; if (!sg.arc) { const m = midHandle(sg); const nw = Object.assign(clone(sg.w), { x: snap(m[0]), y: snap(m[1]), openings: [] }); sg.w.openings = []; S.spec.loop.splice(drag.h.i + 1, 0, nw); S.sel = { type: 'vertex', i: drag.h.i + 1 }; specChanged(); }
+  }
+  if (drag.kind === 'move' && !drag.moved) S.undo.pop(); // click without change: drop undo entry
+  if (drag.kind === 'create') {
+    drag.w1 = [snap(w[0], e), snap(w[1], e)];
+    const [a, b] = [drag.w0, drag.w1];
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.3) {
+      pushUndo();
+      if (drag.tool === 'partition') { S.spec.partitions.push({ a, b, thick: 0.15, h: 0, mat: 'gypsum_stud', openings: [] }); S.sel = { type: 'partition', i: S.spec.partitions.length - 1 }; }
+      else {
+        const poly = [[Math.min(a[0], b[0]), Math.min(a[1], b[1])], [Math.max(a[0], b[0]), Math.min(a[1], b[1])], [Math.max(a[0], b[0]), Math.max(a[1], b[1])], [Math.min(a[0], b[0]), Math.max(a[1], b[1])]];
+        if (drag.tool === 'platform') { S.spec.platforms.push({ poly, h: 0.5, mat: 'wood_panel' in MATBY ? 'wood_panel' : 'wood_lining', topMat: 'stage_floor' }); S.sel = { type: 'platform', i: S.spec.platforms.length - 1 }; }
+        else { const z = Math.min(4, ceilAt(centroid(poly)) - 1); S.spec.balconies.push({ poly, z, thick: 0.3, mat: 'concrete', topMat: 'carpet_thin' }); S.sel = { type: 'balcony', i: S.spec.balconies.length - 1 }; }
+      }
+      S.tool = 'select'; renderTools(); specChanged();
+    }
+  }
+  drag = null; drawPlan();
+});
+plan.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); drag = null; });
+plan.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * 0.0015)); drawPlan(); }, { passive: false });
+function zoomAt(px, py, f) { const w = s2w(px, py); V.s = Math.max(3, Math.min(400, V.s * f)); V.ox = px - w[0] * V.s; V.oy = py + w[1] * V.s; }
+function wallLen(i) { const L = S.spec.loop; const a = L[i], b = L[(i + 1) % L.length]; return Math.hypot(b.x - a.x, b.y - a.y); }
+function addOpening(w, t, kind, L) {
+  w.openings = w.openings || [];
+  const wd = kind === 'door' ? 0.9 : 1.4; const f = Math.min(0.9, wd / L);
+  let t0 = Math.max(0.02, Math.min(0.98 - f, t - f / 2));
+  const op = kind === 'door' ? { t0, t1: t0 + f, z0: 0, z1: 2.1, kind, mat: 'wood_door' } : { t0, t1: t0 + f, z0: 0.9, z1: 2.2, kind, mat: 'glass_window' };
+  // avoid overlap
+  if (w.openings.some(o => !(op.t1 < o.t0 || op.t0 > o.t1))) { flash('다른 문/창과 겹칩니다. 조금 옆을 누르세요.'); return; }
+  w.openings.push(op);
+}
+function ceilAt(p) { return mesh ? mesh.zc(p[0], p[1]) : 3; }
+function selFromHit(h) {
+  switch (h.type) { case 'vertex': return { type: 'vertex', i: h.i }; case 'pend': return { type: 'partition', i: h.i }; default: return { type: h.type, i: h.i, wall: h.wall, oi: h.oi, part: h.part }; }
+}
+function eraseHit(h) {
+  const s = S.spec;
+  switch (h.type) {
+    case 'column': s.columns.splice(h.i, 1); break;
+    case 'partition': case 'pend': s.partitions.splice(h.i, 1); break;
+    case 'platform': s.platforms.splice(h.i, 1); break;
+    case 'balcony': s.balconies.splice(h.i, 1); break;
+    case 'opening': s.loop[h.wall].openings.splice(h.oi, 1); break;
+    case 'popening': s.partitions[h.part].openings.splice(h.oi, 1); break;
+    case 'vertex': if (s.loop.length > 3) s.loop.splice(h.i, 1); else flash('방은 꼭짓점이 3개 이상이어야 합니다.'); break;
+    case 'wall': flash('바깥 벽은 지울 수 없습니다. 꼭짓점(네모)을 지우거나 옮기세요.'); return;
+    default: return;
+  }
+  S.sel = null; specChanged();
+}
+function deleteSelected() {
+  if (!S.sel) return; const t = S.sel;
+  const h = t.type === 'opening' ? { type: 'opening', wall: +String(t.i).split(':')[0], oi: +String(t.i).split(':')[1] } : t.type === 'popening' ? { type: 'popening', part: +String(t.i).split(':')[0], oi: +String(t.i).split(':')[1] } : t;
+  pushUndo(); eraseHit(h);
+}
+let flashT = 0; function flash(msg) { const h = $('#hint'); h.textContent = msg; h.style.color = '#b8481f'; clearTimeout(flashT); flashT = setTimeout(() => { h.style.color = ''; renderTools(); }, 2600); }
+
+// ------------------------------------------------------------------ selection panel (materials etc.)
+const swCache = {};
+function swatch(id, w, h) { // procedural texture preview canvas (shared generator with 3D)
+  const key = id + w + 'x' + h; if (swCache[key]) return swCache[key];
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const tex = texCanvas(MATBY[id] ? MATBY[id].tex : 'plain', MATBY[id] ? MATBY[id].color : '#ccc', 128);
+  g.fillStyle = g.createPattern(tex, 'repeat'); g.fillRect(0, 0, w, h); return (swCache[key] = c.toDataURL());
+}
+const PICK = { wall: ['벽 · 구조', '흡음 · 확산', '유리 · 문 · 개구부'], floor: ['바닥', '객석'], ceiling: ['천장', '흡음 · 확산', '벽 · 구조'], any: CATS.map(c => c[0]) };
+function absBadge(id) { const m = MATBY[id]; const a = (m.a[3] + m.a[4]) / 2; return a < 0.15 ? '<span class="badge lo">소리 반사</span>' : a < 0.45 ? '<span class="badge">조금 흡음</span>' : '<span class="badge hi">많이 흡음</span>'; }
+function matPicker(current, onPick, target) {
+  const wrap = document.createElement('div'); const allowed = PICK[target || 'any'];
+  if (target && target !== 'any') {
+    const mk = document.createElement('button'); mk.className = 'btn small mk-open'; mk.textContent = '＋ 구성으로 새 재질 만들기 (두께·공기층·구멍…)';
+    mk.onclick = () => { const back = () => ed.replaceWith(matPicker(current, onPick, target)); const ed = matEditor(id => onPick(id), back); wrap.replaceWith(ed); };
+    wrap.appendChild(mk);
+  }
+  CATS.filter(([cat]) => allowed.includes(cat)).sort((a, b) => allowed.indexOf(a[0]) - allowed.indexOf(b[0])).forEach(([cat, ids]) => {
+    const h = document.createElement('div'); h.className = 'matcat'; h.textContent = cat; wrap.appendChild(h);
+    const grid = document.createElement('div'); grid.className = 'mats';
+    ids.filter(id => MATBY[id]).forEach(id => {
+      const b = document.createElement('button'); b.className = 'mat'; b.setAttribute('aria-pressed', id === current);
+      b.innerHTML = `<img alt="" src="${swatch(id, 96, 30)}" style="width:100%;height:30px;border-radius:3px;display:block;object-fit:cover"><span>${MATBY[id].ko}</span>${absBadge(id)}`;
+      b.onclick = () => onPick(id); grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+  });
+  return wrap;
+}
+function matInfo(id) {
+  const m = MATBY[id]; const d = document.createElement('div'); d.className = 'matinfo';
+  if (!m) return d;
+  d.innerHTML = `<b>${m.ko}</b> <span class="src-cite" style="display:inline">${m.en}</span><canvas></canvas>
+    <div class="src-cite">흡음률: ${m.src === 'model' ? '구성으로 계산 (전달행렬 모델: ' + ({ porous: '다공질 Miki', panel: '판 진동', perf: '타공판 Maa', sheet: '커튼' }[m.kind] || m.kind) + ')' : m.src.startsWith('pyroom') ? 'Vorländer 부록 표 (pyroomacoustics 자료, MIT)' : 'RoomTreat / sengpielaudio 표'}${m.phys && m.src !== 'model' ? ' · 63 Hz: 표에 없어 실제 구성(' + ({ porous: '다공질층', panel: '판+공기층', perf: '타공판+공기층', sheet: '커튼+공기층', glazing: '판유리/문짝' }[m.phys.kind]) + ') 물리 모델로 외삽' : ''} · 산란: ${m.ssrc.startsWith('measured') ? '측정값' : '표면 요철 깊이 ' + Math.round(parseFloat(m.ssrc.split('d=')[1]) * 100) + ' cm로 계산(BRAS 방식)'} · 벽 너머로 새는 소리: 질량 법칙으로 계산</div>`;
+  requestAnimationFrame(() => drawAlpha(d.querySelector('canvas'), m));
+  return d;
+}
+function drawAlpha(cv, m) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 3); cv.width = r.width * dpr; cv.height = r.height * dpr; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = r.width, H = r.height, l = 30, b = 16, t = 20; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  const yv = v => t + (1 - v * 0.96 - 0.02) * (H - t - b);
+  g.font = '10px sans-serif'; g.fillStyle = '#6b717a'; g.strokeStyle = '#e8e2d4';
+  [0, 0.5, 1].forEach(v => { const y = yv(v); g.beginPath(); g.moveTo(l, y); g.lineTo(W - 4, y); g.stroke(); g.fillText(v.toFixed(1), 4, y + 3); });
+  const xs = i => l + i * (W - l - 8) / (SA.NB - 1);
+  SA.BANDS.forEach((f, i) => { g.fillText(f >= 1000 ? (f / 1000) + 'k' : f, xs(i) - 8, H - 3); });
+  const line = (arr, col, dash) => { g.strokeStyle = col; g.lineWidth = 2; g.setLineDash(dash || []); g.beginPath(); arr.forEach((v, i) => { const y = yv(v); i ? g.lineTo(xs(i), y) : g.moveTo(xs(i), y); }); g.stroke(); g.setLineDash([]); };
+  line(m.a, '#b8481f'); line(m.s, '#1f6b66', [4, 3]);
+  g.fillStyle = '#b8481f'; g.fillText('━ 흡음률 α', l, 11); g.fillStyle = '#1f6b66'; g.fillText('┅ 산란 s', l + 80, 11);
+}
+// ------------------------------------------------------------------ 재질 만들기 (v3): user materials from their construction
+// α is computed by the transfer-matrix model in core.js (SA.phys); the library lives in per-viewer storage and travels with
+// every simulation request (spec.customMats), so the worker knows it too.
+S.customLib = (() => { try { return JSON.parse(store.get('sa.custom') || '{}') || {}; } catch (e) { return {}; } })();
+function registerCustoms() {
+  for (const [id, m] of Object.entries(S.customLib)) { SA.defMat(id, m); MATBY[id] = Object.assign({ id }, m); }
+  const ids = Object.keys(S.customLib); const i = CATS.findIndex(c => c[0] === '내가 만든 재질');
+  if (i >= 0) CATS.splice(i, 1); if (ids.length) CATS.unshift(['내가 만든 재질', ids]);
+  ['wall', 'floor', 'ceiling'].forEach(k => { const a = PICK[k]; const j = a.indexOf('내가 만든 재질'); if (j >= 0) a.splice(j, 1); if (ids.length) a.unshift('내가 만든 재질'); });
+}
+function saveCustom(m) {
+  const id = 'custom_' + Date.now().toString(36); S.customLib[id] = m; store.set('sa.custom', JSON.stringify(S.customLib)); registerCustoms(); return id;
+}
+const KINDS = {
+  porous: { label: '다공질 흡음재', hint: '암면·유리섬유·폼. 섬유나 기포 사이 공기가 마찰하며 소리를 열로 바꿉니다. 두꺼울수록, 벽에서 띄울수록 낮은 소리까지 흡수합니다.',
+    p: { d: 0.05, sigma: 12000, gap: 0 },
+    rows: [['d', '두께', 0.01, 0.2, 0.005, 1000, 'mm'], ['sigma', '흐름저항 σ', 2000, 80000, 0, 1 / 1000, 'kPa·s/m²', true], ['gap', '벽과 띄운 공기층', 0, 0.4, 0.01, 1000, 'mm']],
+    name: p => `흡음재 ${Math.round(p.d * 1000)} mm` + (p.gap > 0 ? ` + 공기층 ${Math.round(p.gap * 1000)} mm` : '') },
+  panel: { label: '판 진동 흡음', hint: '석고보드·합판 + 공기층. 판이 뒤쪽 공기층을 스프링 삼아 흔들리며 저음을 흡수합니다. 공진 주파수 ≈ 60/√(판 무게 × 공기층).',
+    p: { m: 10, gap: 0.05, fill: 0 },
+    rows: [['m', '판 무게', 2, 40, 0.5, 1, 'kg/m²'], ['gap', '공기층 깊이', 0.01, 0.4, 0.01, 1000, 'mm'], ['fill', '공기층 속 흡음재', 0, 0.4, 0.01, 1000, 'mm']],
+    name: p => `판 ${p.m} kg/m² + 공기층 ${Math.round(p.gap * 1000)} mm` },
+  perf: { label: '타공판 흡음', hint: '구멍 뚫린 판 + 공기층. 구멍 속 공기가 뒤쪽 공기층과 함께 헬름홀츠 공명기처럼 울리며 특정 대역을 흡수합니다. 구멍 뒤 부직포가 흡음 폭을 넓힙니다.',
+    p: { t: 0.0125, dh: 0.006, phi: 0.08, gap: 0.1, fill: 0.05, fleece: 0 },
+    rows: [['t', '판 두께', 0.003, 0.03, 0.0005, 1000, 'mm'], ['dh', '구멍 지름', 0.0005, 0.02, 0.0005, 1000, 'mm'], ['phi', '구멍 비율', 0.01, 0.3, 0.005, 100, '%'], ['gap', '공기층 깊이', 0.02, 0.4, 0.01, 1000, 'mm'], ['fill', '공기층 속 흡음재', 0, 0.4, 0.01, 1000, 'mm'], ['fleece', '구멍 뒤 부직포 저항', 0, 400, 10, 1, 'Pa·s/m']],
+    name: p => `타공판 ${(p.phi * 100).toFixed(0)}% ⌀${(p.dh * 1000).toFixed(1)} mm + ${Math.round(p.gap * 1000)} mm` },
+  sheet: { label: '커튼 · 천', hint: '벽에서 띄워 건 천. 천을 벽에서 띄울수록 공기 입자가 빠르게 움직이는 위치에 천이 놓여 흡음이 커집니다(벽에서 λ/4 지점이 최대).',
+    p: { R: 600, m: 0.5, gap: 0.12 },
+    rows: [['m', '천 무게', 0.1, 1.2, 0.05, 1, 'kg/m²'], ['R', '천의 흐름저항', 100, 2000, 10, 1, 'Pa·s/m'], ['gap', '벽과의 거리', 0, 0.3, 0.01, 1000, 'mm']],
+    name: p => `커튼 ${p.m} kg/m², 벽에서 ${Math.round(p.gap * 1000)} mm` },
+};
+function matEditor(onSaved, onCancel) {
+  const d = document.createElement('div'); d.className = 'mated';
+  let kind = 'porous'; let p = Object.assign({}, KINDS[kind].p);
+  const draw = () => {
+    const K = KINDS[kind];
+    d.innerHTML = `<div class="matcat">재질 만들기 — 구성을 정하면 흡음률을 물리 모델로 계산합니다</div>
+      <label class="row"><span>종류</span><select class="mk-kind">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}"${k === kind ? ' selected' : ''}>${v.label}</option>`).join('')}</select></label>
+      <p class="meaning">${K.hint}</p><div class="mk-rows"></div>
+      <div class="matinfo"><b class="mk-name"></b><canvas></canvas><div class="src-cite mk-res"></div></div>
+      <label class="row"><span>이름</span><input class="mk-title" type="text" maxlength="40"></label>
+      <div class="mk-btns"><button class="btn small mk-save">저장하고 바로 적용</button><button class="btn small mk-cancel">취소</button></div>`;
+    d.querySelector('.mk-kind').onchange = e => { kind = e.target.value; p = Object.assign({}, KINDS[kind].p); draw(); };
+    const rowsEl = d.querySelector('.mk-rows');
+    K.rows.forEach(([key, label, min, max, step, scale, unit, log]) => {
+      const r = document.createElement('div'); r.className = 'row';
+      const toS = v => log ? Math.log(v / min) / Math.log(max / min) * 1000 : v, fromS = v => log ? min * Math.pow(max / min, v / 1000) : v;
+      r.innerHTML = `<label>${label}</label><input type="range" min="${log ? 0 : min}" max="${log ? 1000 : max}" step="${log ? 1 : step}" value="${toS(p[key])}"><span class="val"></span>`;
+      const inp = r.querySelector('input'), out = r.querySelector('.val');
+      const show = () => { const v = p[key] * scale; out.textContent = (Math.abs(v) >= 100 || Number.isInteger(+v.toFixed(1)) ? v.toFixed(0) : v.toFixed(1)) + ' ' + unit; };
+      inp.oninput = () => { p[key] = +fromS(+inp.value).toPrecision(4); if (key === 'gap' && p.fill > p.gap) p.fill = p.gap; show(); update(); };
+      show(); rowsEl.appendChild(r);
+    });
+    const title = d.querySelector('.mk-title'); title.value = K.name(p); title.dataset.auto = '1';
+    title.oninput = () => { title.dataset.auto = ''; };
+    d.querySelector('.mk-cancel').onclick = onCancel;
+    d.querySelector('.mk-save').onclick = () => { const m = SA.phys.makeMaterial(kind, Object.assign({}, p), (title.value || K.name(p)).trim()); onSaved(saveCustom(m)); };
+    update();
+  };
+  const update = () => {
+    const K = KINDS[kind]; const m = SA.phys.makeMaterial(kind, p, K.name(p));
+    const t = d.querySelector('.mk-title'); if (t && t.dataset.auto) t.value = K.name(p);
+    d.querySelector('.mk-name').textContent = '계산된 흡음률 (실내 확산 입사)';
+    const f0 = SA.phys.resonanceHz(kind, p);
+    d.querySelector('.mk-res').textContent = (kind === 'porous' ? `흡음이 거의 최대가 되는 주파수(두께+공기층 = λ/4) ≈ ${Math.round(f0)} Hz` : kind === 'sheet' ? `벽에서 λ/4가 되는 주파수 ≈ ${Math.round(343 / (4 * Math.max(p.gap, 0.005)))} Hz` : `공진 주파수 ≈ ${Math.round(f0)} Hz`) + ' · 모델: 전달행렬법(Miki 다공질, Maa 타공판, 질량-공기층 공진)';
+    requestAnimationFrame(() => drawAlpha(d.querySelector('canvas'), m));
+  };
+  draw();
+  return d;
+}
+registerCustoms();
+window.__ui = { loadPreset: (...a) => loadPreset(...a), setTab: (...a) => setTab(...a), renderSel: () => renderSel(), compute: l => compute(l) }; // headless screenshot hooks
+
+function rangeRow(label, val, min, max, step, unit, on, meaning) {
+  const d = document.createElement('div'); const id = 'r' + Math.random().toString(36).slice(2, 7);
+  d.innerHTML = `<div class="row"><label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="val">${(+val).toFixed(2)} ${unit}</span></div>${meaning ? `<p class="meaning">${meaning}</p>` : ''}`;
+  const inp = d.querySelector('input'), out = d.querySelector('.val'); let started = false;
+  inp.oninput = () => { if (!started) { pushUndo(); started = true; } out.textContent = (+inp.value).toFixed(2) + ' ' + unit; on(+inp.value); specChanged(); };
+  inp.onchange = () => { started = false; };
+  return d;
+}
+function renderSel() {
+  const body = $('#selBody'), title = $('#selTitle'); body.innerHTML = '';
+  if (S.pickTarget) {
+    const isC = S.pickTarget === 'ceiling'; title.textContent = isC ? '천장 재질' : '바닥 재질';
+    const cur = isC ? S.spec.ceiling.mat : S.spec.floorMat;
+    const done = document.createElement('button'); done.className = 'btn small'; done.textContent = '완료 — 선택 닫기'; done.style.marginBottom = '6px'; done.onclick = () => { S.pickTarget = null; renderSel(); }; body.appendChild(done);
+    body.appendChild(matInfo(cur));
+    body.appendChild(matPicker(cur, id => { pushUndo(); if (isC) S.spec.ceiling.mat = id; else S.spec.floorMat = id; specChanged(); }, isC ? 'ceiling' : 'floor'));
+    return;
+  }
+  const sel = S.sel;
+  if (!sel) { title.textContent = '선택한 요소'; body.innerHTML = '<p class="meaning">평면도에서 벽, 문, 기둥, 단 등을 누르면 재질과 크기를 바꿀 수 있습니다. 위쪽 도구로 새 요소를 추가하세요.</p>'; return; }
+  const s = S.spec;
+  const del = () => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = '이 요소 지우기'; b.style.marginTop = '8px'; b.onclick = deleteSelected; return b; };
+  if (sel.type === 'wall' || sel.type === 'vertex') {
+    const i = sel.type === 'vertex' ? (sel.i - 1 + s.loop.length) % s.loop.length : sel.i; const w = s.loop[i];
+    title.textContent = `바깥 벽 ${i + 1}` + (Math.abs(w.bulge || 0) > 1e-4 ? ' (둥근 벽)' : '');
+    body.appendChild(rangeRow('두께', w.thick || 0.2, 0.08, 1.0, 0.01, 'm', v => { w.thick = v; }, '두꺼운 벽은 소리를 덜 통과시키고, 벽 끝에서 회절이 두 번 일어납니다.'));
+    if (Math.abs(w.bulge || 0) > 1e-4) body.appendChild(rangeRow('휨 정도', w.bulge, -1, 1, 0.01, '', v => { w.bulge = Math.abs(v) < 0.03 ? 0 : v; }));
+    body.appendChild(matInfo(w.mat));
+    body.appendChild(matPicker(w.mat, id => { pushUndo(); w.mat = id; specChanged(); }, 'wall'));
+    const allB = document.createElement('button'); allB.className = 'btn small'; allB.textContent = '모든 바깥 벽에 같은 재질'; allB.style.marginTop = '8px'; allB.onclick = () => { pushUndo(); s.loop.forEach(q => q.mat = w.mat); specChanged(); }; body.appendChild(allB);
+    if (sel.type === 'vertex') body.appendChild(del());
+    return;
+  }
+  if (sel.type === 'opening' || sel.type === 'popening') {
+    const [a, b] = String(sel.i).split(':').map(Number); const host = sel.type === 'opening' ? s.loop[a] : s.partitions[a]; const op = host.openings[b]; if (!op) { S.sel = null; return renderSel(); }
+    const L = sel.type === 'opening' ? wallLen(a) : Math.hypot(host.b[0] - host.a[0], host.b[1] - host.a[1]);
+    title.textContent = op.kind === 'door' ? '문' : '창';
+    body.appendChild(rangeRow('너비', (op.t1 - op.t0) * L, 0.4, Math.max(0.5, L * 0.95), 0.05, 'm', v => { const c = (op.t0 + op.t1) / 2, f = v / L; op.t0 = Math.max(0.01, c - f / 2); op.t1 = Math.min(0.99, op.t0 + f); }));
+    body.appendChild(rangeRow('아래 높이', op.z0, 0, 3, 0.05, 'm', v => { op.z0 = Math.min(v, op.z1 - 0.2); }));
+    body.appendChild(rangeRow('위 높이', op.z1, 0.5, Math.max(1, ceilAt([0, 0]) - 0.1), 0.05, 'm', v => { op.z1 = Math.max(v, op.z0 + 0.2); }));
+    const h = document.createElement('div'); h.innerHTML = '<h3>무엇으로 막을까요</h3>'; body.appendChild(h);
+    const opts = op.kind === 'door' ? ['open', 'wood_door', 'glass_heavy'] : ['glass_window', 'double_glazing', 'glass_heavy', 'open'];
+    const grid = document.createElement('div'); grid.className = 'mats';
+    opts.forEach(id => { const btn = document.createElement('button'); btn.className = 'mat'; btn.setAttribute('aria-pressed', op.mat === id); btn.innerHTML = id === 'open' ? '<span style="height:30px;display:flex;align-items:center;justify-content:center;border:1px dashed #b9ae98;border-radius:3px">비어 있음</span><span>열어 둠 (구멍)</span>' : `<img alt="" src="${swatch(id, 96, 30)}" style="width:100%;height:30px;border-radius:3px"><span>${MATBY[id].ko}</span>`; btn.onclick = () => { pushUndo(); op.mat = id; specChanged(); }; grid.appendChild(btn); });
+    body.appendChild(grid);
+    body.appendChild(Object.assign(document.createElement('p'), { className: 'meaning', textContent: '열어 두면 소리가 그대로 빠져나가거나 옆방으로 넘어가고, 문틀 모서리에서 회절이 일어납니다.' }));
+    body.appendChild(del()); return;
+  }
+  if (sel.type === 'partition') {
+    const pw = s.partitions[sel.i]; title.textContent = '칸막이 벽';
+    body.appendChild(rangeRow('두께', pw.thick || 0.15, 0.05, 0.6, 0.01, 'm', v => { pw.thick = v; }));
+    body.appendChild(rangeRow('높이 (0 = 천장까지)', pw.h || 0, 0, 12, 0.1, 'm', v => { pw.h = v < 0.3 ? 0 : v; }, '천장보다 낮으면 위쪽 모서리로 소리가 넘어갑니다.'));
+    body.appendChild(matInfo(pw.mat)); body.appendChild(matPicker(pw.mat, id => { pushUndo(); pw.mat = id; specChanged(); }, 'wall')); body.appendChild(del()); return;
+  }
+  if (sel.type === 'column') {
+    const c = s.columns[sel.i]; title.textContent = '기둥';
+    body.appendChild(rangeRow('반지름', c.r || 0.25, 0.08, 1.5, 0.01, 'm', v => { c.r = v; }));
+    const sh = document.createElement('div'); sh.className = 'row'; sh.innerHTML = '<label>모양</label><select><option value="round">원기둥</option><option value="square">사각 기둥</option></select>'; const se = sh.querySelector('select'); se.value = c.shape || 'round'; se.onchange = () => { pushUndo(); c.shape = se.value; specChanged(); }; body.appendChild(sh);
+    body.appendChild(matInfo(c.mat)); body.appendChild(matPicker(c.mat, id => { pushUndo(); c.mat = id; specChanged(); }, 'wall')); body.appendChild(del()); return;
+  }
+  if (sel.type === 'platform' || sel.type === 'balcony') {
+    const p = sel.type === 'platform' ? s.platforms[sel.i] : s.balconies[sel.i]; title.textContent = sel.type === 'platform' ? '단 · 가구' : '발코니';
+    if (sel.type === 'platform') body.appendChild(rangeRow('높이', p.h || 0.5, 0.1, 3, 0.05, 'm', v => { p.h = v; }));
+    else { body.appendChild(rangeRow('바닥 높이', p.z, 1.5, Math.max(2, ceilAt(centroid(p.poly)) - 0.8), 0.1, 'm', v => { p.z = v; })); body.appendChild(rangeRow('슬래브 두께', p.thick || 0.3, 0.1, 1, 0.05, 'm', v => { p.thick = v; })); }
+    const h = document.createElement('div'); h.innerHTML = '<h3>윗면 재질</h3>'; body.appendChild(h);
+    body.appendChild(matPicker(p.topMat || p.mat, id => { pushUndo(); p.topMat = id; specChanged(); }, 'floor'));
+    const h2 = document.createElement('div'); h2.innerHTML = '<h3>옆면 재질</h3>'; body.appendChild(h2);
+    const se = document.createElement('select'); MATS.filter(m => m.id !== 'open_window').forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.ko; se.appendChild(o); }); se.value = p.mat; se.onchange = () => { pushUndo(); p.mat = se.value; specChanged(); }; body.appendChild(se);
+    body.appendChild(matInfo(p.topMat || p.mat)); body.appendChild(del()); return;
+  }
+  if (sel.type === 'source' || sel.type === 'receiver') { S.sel = null; renderSel(); }
+}
+
+// ------------------------------------------------------------------ controls (ceiling, env, listener)
+function syncControls() {
+  const s = S.spec, c = s.ceiling;
+  $('#ceilType').value = c.type || 'flat'; $('#ceilH').value = c.h; $('#ceilHv').textContent = fmt(c.h, 1) + ' m';
+  $('#ceilRise').value = c.rise || 0; $('#ceilRisev').textContent = fmt(c.rise || 0, 1) + ' m'; $('#ceilAxis').value = String(c.axis || 0);
+  $('#riseRow').hidden = (c.type || 'flat') === 'flat'; $('#ceilAxis').closest('.row').hidden = (c.type || 'flat') === 'flat';
+  const e = s.env; $('#envT').value = e.T; $('#envTv').textContent = e.T + ' °C'; $('#envRH').value = e.RH; $('#envRHv').textContent = e.RH + ' %'; $('#envG').value = e.grad || 0; $('#envGv').textContent = fmt(e.grad || 0, 1) + ' K/m';
+  const f = s.facing || [1, 0, 0]; const ang = Math.round(Math.atan2(f[1], f[0]) * 180 / Math.PI); $('#face').value = ang; $('#facev').textContent = ang + '°';
+  $('#earH').value = s.receiver[2]; $('#earHv').textContent = fmt(s.receiver[2], 2) + ' m'; $('#srcH').value = s.source[2]; $('#srcHv').textContent = fmt(s.source[2], 2) + ' m';
+}
+function bindRange(id, apply) { let started = false; const el = $(id); el.addEventListener('input', () => { if (!started) { pushUndo(); started = true; } apply(+el.value); syncControls(); specChanged(); }); el.addEventListener('change', () => { started = false; }); }
+bindRange('#ceilH', v => { S.spec.ceiling.h = v; });
+bindRange('#ceilRise', v => { S.spec.ceiling.rise = v; });
+bindRange('#envT', v => { S.spec.env.T = v; });
+bindRange('#envRH', v => { S.spec.env.RH = v; });
+bindRange('#envG', v => { S.spec.env.grad = v; });
+bindRange('#face', v => { S.spec.facing = [Math.cos(v * Math.PI / 180), Math.sin(v * Math.PI / 180), 0]; });
+bindRange('#earH', v => { S.spec.receiver[2] = v; });
+bindRange('#srcH', v => { S.spec.source[2] = v; });
+$('#ceilType').onchange = () => { pushUndo(); S.spec.ceiling.type = $('#ceilType').value; if (S.spec.ceiling.type !== 'flat' && !S.spec.ceiling.rise) S.spec.ceiling.rise = 2; syncControls(); specChanged(); };
+$('#ceilAxis').onchange = () => { pushUndo(); S.spec.ceiling.axis = +$('#ceilAxis').value; specChanged(); };
+$('#pickCeil').onclick = () => { S.pickTarget = 'ceiling'; renderSel(); $('#selPanel').scrollIntoView({ block: 'nearest' }); };
+$('#pickFloor').onclick = () => { S.pickTarget = 'floor'; renderSel(); $('#selPanel').scrollIntoView({ block: 'nearest' }); };
+
+// ------------------------------------------------------------------ procedural textures (2D canvas) — shared by swatches and 3D
+const texMemo = {};
+function texCanvas(kind, color, N) {
+  const key = kind + color + N; if (texMemo[key]) return texMemo[key];
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); const R = SA.rng(kind.length * 977 + N);
+  const rgb = [parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16)];
+  const shade = (k, a) => `rgba(${Math.max(0, Math.min(255, rgb[0] * k))|0},${Math.max(0, Math.min(255, rgb[1] * k))|0},${Math.max(0, Math.min(255, rgb[2] * k))|0},${a == null ? 1 : a})`;
+  g.fillStyle = color; g.fillRect(0, 0, N, N);
+  const noise = (amt, size) => { for (let i = 0; i < N * N / (size * size) * 1.2; i++) { g.fillStyle = shade(1 + (R() - 0.5) * amt, 0.5); g.fillRect(R() * N, R() * N, size, size); } };
+  switch (kind) {
+    case 'concrete': noise(0.18, 2); for (let i = 0; i < 18; i++) { g.fillStyle = shade(0.82, 0.5); g.beginPath(); g.arc(R() * N, R() * N, R() * 1.6 + 0.4, 0, 7); g.fill(); } g.strokeStyle = shade(0.86, 0.6); g.strokeRect(0.5, 0.5, N - 1, N - 1); break;
+    case 'brick': { const bh = N / 8, bw = N / 4; for (let r = 0; r < 8; r++) for (let k = -1; k < 5; k++) { const x = k * bw + (r % 2 ? bw / 2 : 0); g.fillStyle = shade(0.85 + R() * 0.3); g.fillRect(x + 1, r * bh + 1, bw - 2, bh - 2); } g.globalCompositeOperation = 'destination-over'; g.fillStyle = shade(1.35); g.fillRect(0, 0, N, N); g.globalCompositeOperation = 'source-over'; noise(0.12, 1); break; }
+    case 'plaster': noise(0.06, 3); break;
+    case 'stone': { const bh = N / 4; for (let r = 0; r < 4; r++) for (let k = -1; k < 3; k++) { const x = k * N / 2 + (r % 2 ? N / 4 : 0); g.fillStyle = shade(0.9 + R() * 0.18); g.fillRect(x + 1, r * bh + 1, N / 2 - 2, bh - 2); } noise(0.1, 2); break; }
+    case 'woodpanel': case 'door': for (let k = 0; k < 4; k++) { g.fillStyle = shade(0.85 + R() * 0.25); g.fillRect(k * N / 4 + 1, 0, N / 4 - 2, N); for (let l = 0; l < 10; l++) { g.strokeStyle = shade(0.75, 0.35); g.beginPath(); const x = k * N / 4 + R() * N / 4; g.moveTo(x, 0); g.bezierCurveTo(x + 3, N / 3, x - 3, 2 * N / 3, x + 1, N); g.stroke(); } } if (kind === 'door') { g.strokeStyle = shade(0.6); g.lineWidth = 2; g.strokeRect(N * 0.15, N * 0.1, N * 0.7, N * 0.35); g.strokeRect(N * 0.15, N * 0.55, N * 0.7, N * 0.35); } break;
+    case 'woodfloor': for (let r = 0; r < 8; r++) { const off = R() * N; for (let k = -1; k < 2; k++) { g.fillStyle = shade(0.8 + R() * 0.35); g.fillRect(off + k * N, r * N / 8 + 0.5, N - 1, N / 8 - 1); } } noise(0.1, 1); break;
+    case 'tile': for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) { g.fillStyle = shade(0.96 + R() * 0.06); g.fillRect(k * N / 4 + 1, r * N / 4 + 1, N / 4 - 2, N / 4 - 2); } g.globalCompositeOperation = 'destination-over'; g.fillStyle = shade(0.7); g.fillRect(0, 0, N, N); g.globalCompositeOperation = 'source-over'; break;
+    case 'marble': noise(0.04, 4); for (let i = 0; i < 7; i++) { g.strokeStyle = shade(0.78, 0.45); g.lineWidth = R() * 1.5 + 0.4; g.beginPath(); let x = R() * N, y = 0; g.moveTo(x, y); while (y < N) { x += (R() - 0.5) * 18; y += 8 + R() * 10; g.lineTo(x, y); } g.stroke(); } break;
+    case 'carpet': noise(0.35, 1); noise(0.2, 2); break;
+    case 'curtain': for (let x = 0; x < N; x++) { const v = 0.75 + 0.3 * Math.pow(Math.sin(x / N * Math.PI * 6), 2); g.fillStyle = shade(v); g.fillRect(x, 0, 1, N); } break;
+    case 'glass': g.fillStyle = shade(1.1, 1); g.fillRect(0, 0, N, N); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; g.beginPath(); g.moveTo(N * 0.2, N); g.lineTo(N * 0.6, 0); g.stroke(); break;
+    case 'ceilingtile': for (let r = 0; r < 2; r++) for (let k = 0; k < 2; k++) { g.fillStyle = shade(0.98); g.fillRect(k * N / 2 + 1, r * N / 2 + 1, N / 2 - 2, N / 2 - 2); } for (let i = 0; i < 260; i++) { g.fillStyle = shade(0.8, 0.6); g.fillRect(R() * N, R() * N, 1 + R() * 2, 1); } g.globalCompositeOperation = 'destination-over'; g.fillStyle = shade(0.75); g.fillRect(0, 0, N, N); g.globalCompositeOperation = 'source-over'; break;
+    case 'foam': for (let r = 0; r < 8; r++) for (let k = 0; k < 8; k++) { const gr = g.createLinearGradient(k * N / 8, 0, (k + 1) * N / 8, 0); gr.addColorStop(0, shade(0.8)); gr.addColorStop(0.5, shade(1.05)); gr.addColorStop(1, shade(0.8)); g.fillStyle = gr; g.fillRect(k * N / 8, r * N / 8, N / 8, N / 8); } break;
+    case 'fabric': for (let y = 0; y < N; y += 2) { g.fillStyle = shade(y % 4 ? 0.95 : 1.05); g.fillRect(0, y, N, 1); } noise(0.08, 1); break;
+    case 'perforated': noise(0.04, 3); g.fillStyle = shade(0.45); for (let y = 4; y < N; y += 8) for (let x = 4; x < N; x += 8) { g.beginPath(); g.arc(x, y, 1.8, 0, 7); g.fill(); } break;
+    case 'metal': for (let k = 0; k < 4; k++) { const gr = g.createLinearGradient(0, k * N / 4, 0, (k + 1) * N / 4); gr.addColorStop(0, shade(1.08)); gr.addColorStop(1, shade(0.86)); g.fillStyle = gr; g.fillRect(0, k * N / 4 + 1, N, N / 4 - 2); } break;
+    case 'diffuser': { const seq = [0, 1, 4, 2, 2, 4, 1]; for (let k = 0; k < 7; k++) { g.fillStyle = shade(0.7 + seq[k] * 0.09); g.fillRect(k * N / 7, 0, N / 7 - 1, N); } break; }
+    case 'seats': for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) { g.fillStyle = shade(0.6); g.fillRect(k * N / 4, r * N / 4, N / 4, N / 4); g.fillStyle = shade(1.0); g.fillRect(k * N / 4 + 3, r * N / 4 + 3, N / 4 - 6, N / 4 - 8); g.fillStyle = shade(1.2); g.fillRect(k * N / 4 + 3, r * N / 4 + 3, N / 4 - 6, 4); } break;
+    case 'water': for (let y = 0; y < N; y += 4) { g.strokeStyle = shade(1.25, 0.35); g.beginPath(); for (let x = 0; x <= N; x += 4) g.lineTo(x, y + Math.sin(x * 0.2 + y) * 1.5); g.stroke(); } break;
+    case 'open': g.fillStyle = '#ffffff'; g.fillRect(0, 0, N, N); g.strokeStyle = '#b9ae98'; g.setLineDash([4, 4]); g.strokeRect(2, 2, N - 4, N - 4); break;
+    case 'facade': noise(0.05, 3); break;
+    default: noise(0.08, 2);
+  }
+  return (texMemo[key] = c);
+}
+const TEX_SIZE = { brick: 1.0, concrete: 1.2, plaster: 2, stone: 1.6, woodpanel: 1.2, door: 1, woodfloor: 1.6, tile: 0.6, marble: 1.5, carpet: 0.8, curtain: 1.0, glass: 1.5, ceilingtile: 1.2, foam: 0.6, fabric: 0.5, perforated: 0.5, metal: 1.2, diffuser: 0.9, seats: 2.0, water: 2, open: 1, facade: 2, plain: 2 };
+
+// ------------------------------------------------------------------ 3D VIEW (three.js)
+const tcv = $('#three');
+const renderer = new THREE.WebGLRenderer({ canvas: tcv, antialias: true, preserveDrawingBuffer: TEST });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#f3efe6');
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000); camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, tcv); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.495;
+scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8a7f70, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; scene.add(sun); scene.add(sun.target);
+const roomGroup = new THREE.Group(); scene.add(roomGroup);
+const markGroup = new THREE.Group(); scene.add(markGroup);
+const pathGroup = new THREE.Group(); scene.add(pathGroup);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(400, 48), new THREE.MeshLambertMaterial({ color: 0xe6dfcf })); ground.position.z = -0.02; ground.receiveShadow = true; scene.add(ground);
+const mat3 = {};
+function threeMat(key) {
+  if (mat3[key]) return mat3[key];
+  let m;
+  if (key === 'facade' || key === 'cap') m = new THREE.MeshStandardMaterial({ color: key === 'cap' ? 0x8f8676 : 0xe9e3d6, roughness: 0.95 });
+  else {
+    const md = MATBY[key] || { tex: 'plain', color: '#cccccc' };
+    const tex = new THREE.CanvasTexture(texCanvas(md.tex, md.color, 256)); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const sz = TEX_SIZE[md.tex] || 2; tex.repeat.set(1 / sz, 1 / sz);
+    if (md.tex === 'glass') m = new THREE.MeshPhysicalMaterial({ map: tex, transparent: true, opacity: 0.32, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
+    else if (md.tex === 'open') m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, depthWrite: false });
+    else m = new THREE.MeshStandardMaterial({ map: tex, roughness: md.tex === 'marble' || md.tex === 'tile' || md.tex === 'metal' ? 0.35 : 0.9, metalness: md.tex === 'metal' ? 0.4 : 0 });
+  }
+  return (mat3[key] = m);
+}
+let ceilMeshes = [];
+function build3D() {
+  if (!mesh) return;
+  roomGroup.children.forEach(o => o.geometry && o.geometry.dispose()); roomGroup.clear(); ceilMeshes = [];
+  const groups = new Map();
+  mesh.tris.forEach(t => {
+    let key = t.mat; const m = t.meta || {};
+    if (t.mat === 'exterior') key = m.cap ? 'cap' : 'facade';
+    const isCeil = !!m.ceiling; const gk = key + (isCeil ? '|c' : '');
+    if (!groups.has(gk)) groups.set(gk, { key, isCeil, pos: [], uv: [], nrm: [] });
+    const G = groups.get(gk);
+    [t.a, t.b, t.c].forEach((p, k) => { G.pos.push(p[0], p[1], p[2]); G.nrm.push(t.n[0], t.n[1], t.n[2]); const uv = t.uv && t.uv[k] ? t.uv[k] : [p[0], p[1]]; G.uv.push(uv[0], uv[1]); });
+  });
+  groups.forEach(G => {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(G.pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(G.nrm, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(G.uv, 2));
+    if (G.key === 'facade') return; // dollhouse cutaway: outer faces hidden so the room interior is always visible; caps show wall thickness
+    const o = new THREE.Mesh(geo, threeMat(G.key)); o.castShadow = G.key !== 'open_window' && !(MATBY[G.key] && MATBY[G.key].tex === 'glass'); o.receiveShadow = true;
+    if (G.isCeil) { o.visible = $('#tCeil').getAttribute('aria-pressed') === 'true'; ceilMeshes.push(o); }
+    roomGroup.add(o);
+  });
+  // markers
+  markGroup.clear();
+  const s = S.spec.source, r = S.spec.receiver, f = S.spec.facing || [1, 0, 0];
+  const spk = new THREE.Group(); const body = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.4), new THREE.MeshStandardMaterial({ color: 0xb8481f, roughness: 0.6 })); spk.add(body);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 24), new THREE.MeshStandardMaterial({ color: 0x1d2126 })); cone.rotation.z = Math.PI / 2; cone.position.x = 0.15; spk.add(cone);
+  spk.position.set(s[0], s[1], s[2]); spk.lookAt(r[0], r[1], s[2]); spk.rotateY(-Math.PI / 2); markGroup.add(spk);
+  const head = new THREE.Group(); head.add(new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), new THREE.MeshStandardMaterial({ color: 0x1f6b66, roughness: 0.5 })));
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 12), new THREE.MeshStandardMaterial({ color: 0x1f6b66 })); nose.rotation.z = -Math.PI / 2; nose.position.x = 0.13; head.add(nose);
+  [-1, 1].forEach(sd => { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), new THREE.MeshStandardMaterial({ color: 0x163f3c })); ear.position.y = 0.11 * sd; head.add(ear); });
+  head.position.set(r[0], r[1], r[2]); head.rotation.z = Math.atan2(f[1], f[0]); markGroup.add(head);
+  build3DPaths();
+  // sun placement relative to room
+  const cx = (mesh.bb.x0 + mesh.bb.x1) / 2, cy = (mesh.bb.y0 + mesh.bb.y1) / 2, ext = Math.max(mesh.bb.x1 - mesh.bb.x0, mesh.bb.y1 - mesh.bb.y0, mesh.bb.z1);
+  sun.position.set(cx - ext * 0.6, cy - ext * 0.9, ext * 1.6); sun.target.position.set(cx, cy, 0);
+  const sc = sun.shadow.camera; sc.left = sc.bottom = -ext; sc.right = sc.top = ext; sc.near = 0.1; sc.far = ext * 5; sc.updateProjectionMatrix();
+  render3D();
+}
+function build3DPaths() {
+  pathGroup.children.forEach(o => o.geometry && o.geometry.dispose()); pathGroup.clear();
+  if (!S.result || S.stale || $('#tPaths').getAttribute('aria-pressed') !== 'true') return;
+  const cols = { 0: 0x1d2126, 1: 0xb8481f, 2: 0xa86b00, d: 0x1f6b66 };
+  S.result.paths.slice(0, 80).forEach(p => {
+    const pts = p.p.map(q => new THREE.Vector3(q[0], q[1], q[2])); const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = p.df ? new THREE.LineDashedMaterial({ color: cols.d, dashSize: 0.2, gapSize: 0.12 }) : new THREE.LineBasicMaterial({ color: cols[Math.min(p.o, 2)], transparent: true, opacity: p.o === 0 ? 0.9 : p.o === 1 ? 0.6 : 0.3 });
+    const l = new THREE.Line(geo, m); if (p.df) l.computeLineDistances(); pathGroup.add(l);
+  });
+}
+let earView = false;
+function fit3D() {
+  if (!mesh) return; const bb = mesh.bb; const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2, ext = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0);
+  if (earView) { const r = S.spec.receiver, f = S.spec.facing || [1, 0, 0]; camera.position.set(r[0] - f[0] * 0.05, r[1] - f[1] * 0.05, r[2]); controls.target.set(r[0] + f[0], r[1] + f[1], r[2]); camera.fov = 70; }
+  else { const d = Math.max(ext, bb.z1) * 1.75; const dir = new THREE.Vector3(-0.42, -0.72, 0.56).normalize(); controls.target.set(cx, cy, bb.z1 * 0.15); camera.position.set(cx + dir.x * d, cy + dir.y * d, bb.z1 * 0.15 + dir.z * d); camera.fov = 40; }
+  camera.near = 0.03; camera.far = ext * 30 + 100; camera.updateProjectionMatrix(); controls.update(); render3D();
+}
+function resize3D() { const r = tcv.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.updateProjectionMatrix(); render3D(); }
+let raf3 = 0; function render3D() { if (raf3) return; raf3 = requestAnimationFrame(() => { raf3 = 0; renderer.render(scene, camera); }); }
+controls.addEventListener('change', render3D);
+(function loop() { controls.update(); requestAnimationFrame(loop); })();
+$('#tCeil').onclick = () => { const on = $('#tCeil').getAttribute('aria-pressed') !== 'true'; $('#tCeil').setAttribute('aria-pressed', on); $('#tCeil').textContent = on ? '천장 숨기기' : '천장 보이기'; ceilMeshes.forEach(o => o.visible = on); render3D(); };
+$('#tPaths').onclick = () => { const on = $('#tPaths').getAttribute('aria-pressed') !== 'true'; $('#tPaths').setAttribute('aria-pressed', on); build3DPaths(); drawPlan(); render3D(); };
+$('#tEar').onclick = () => { earView = !earView; $('#tEar').setAttribute('aria-pressed', earView); if (earView && $('#tCeil').getAttribute('aria-pressed') !== 'true') $('#tCeil').click(); fit3D(); };
+
+// ------------------------------------------------------------------ views, tabs, layout
+function setView(v) { S.view = v; $$('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v)); $('#views').className = 'views' + (v === 'split' ? ' split' : ''); $('#planPane').hidden = v === '3d'; $('#threePane').hidden = v === 'plan'; requestAnimationFrame(() => { resizePlan(); fitPlan(); resize3D(); }); }
+$$('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+function setTab(t) {
+  S.tab = t; $('#side').scrollTop = 0; $$('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t)); $$('[data-pane]').forEach(p => p.hidden = p.dataset.pane !== t);
+  if (t === 'analyse') drawPlots(); if (t === 'challenge') renderChallenges(); if (t === 'verify') renderVerify();
+  if (t === 'listen' && S.stale && !S.computing && !TEST) compute();
+}
+$$('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+window.addEventListener('resize', () => { resizePlan(); drawPlan(); resize3D(); });
+new ResizeObserver(() => { resizePlan(); drawPlan(); resize3D(); }).observe($('#views'));
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); doRedo(); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+  else if (e.key === 'Escape') { S.sel = null; S.tool = 'select'; renderTools(); renderSel(); drawPlan(); }
+});
+$('#undo').onclick = doUndo; $('#redo').onclick = doRedo;
+$('#preset').innerHTML = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
+$('#preset').onchange = () => loadPreset($('#preset').value);
+$('#resetPreset').onclick = () => loadPreset(S.presetId);
+
+// ------------------------------------------------------------------ chips + live Eyring estimate
+function updateChips() {
+  if (meshErr) { $('#chips').innerHTML = ''; renderBanner(); return; }
+  const ch = []; const fresh = S.result && !S.stale;
+  if (mesh && !fresh) { try { const se = SA.sabineEyring(mesh, null, S.spec.env); const eyr = (se.eyring[3] + se.eyring[4]) / 2; ch.push(`<span class="chip" title="Eyring 공식: 소리가 방 안에 고르게 퍼진다고 가정한 빠른 추정입니다. 흡음재가 천장이나 한쪽 벽에만 몰려 있으면 실제 계산값보다 짧게 나옵니다.">공식 추정 잔향 <b>${fmt(eyr, 2)} s</b></span>`); } catch (e) { } }
+  if (mesh) ch.push(`<span class="chip">부피 <b>${fmt(mesh.volume, 0)} m³</b></span>`);
+  if (S.result) {
+    const m = S.result.metrics;
+    ch.push(`<span class="chip${S.stale ? ' stale' : ''}" title="청취자 위치에서 계산한 값. T30: 500 Hz–1 kHz, C80·D50: 500 Hz–2 kHz 평균 (도전 과제와 같은 기준)">${S.stale ? '이전 계산 · ' : '계산값 · '}T30 <b>${fmt(avgB(m.T30, [3, 4]))} s</b> · C80 <b>${fmt(avgB(m.C80, [3, 4, 5]), 1)} dB</b> · D50 <b>${fmt(avgB(m.D50, [3, 4, 5]))}</b>${S.stale ? ' · 다시 계산 필요' : ''}</span>`);
+  }
+  $('#chips').innerHTML = ch.join('');
+  renderBanner();
+}
+function renderBanner() {
+  const b = $('#banner'); const c = S.challenge && CHALLENGES.find(x => x.id === S.challenge);
+  if (!c) { b.hidden = true; return; }
+  const m = S.result && !S.stale ? S.result.metrics : null;
+  b.hidden = false;
+  b.innerHTML = `<b>도전: ${c.title}</b>` + c.goals.map(gl => { const r = m ? evalGoal(gl, m) : null; return `<span class="goal ${r ? (r.ok ? 'ok' : 'no') : ''}">${r ? (r.ok ? '✓' : '✗') : '·'} ${gl.k} ${goalText(gl)}${r ? ` (지금 ${fmt(r.v, gl.k === 'C80' || gl.k === 'G' ? 1 : 2)})` : ''}</span>`; }).join('') + `<button class="btn small" id="bannerGrade">채점</button>`;
+  $('#bannerGrade').onclick = () => gradeChallenge(c);
+}
+const avgB = (a, bs) => { const v = bs.map(b => a[b]).filter(x => x != null && isFinite(x)); return v.length ? v.reduce((p, c) => p + c, 0) / v.length : null; };
+
+// ------------------------------------------------------------------ simulation (worker)
+const worker = new Worker('worker.js');
+const pending = new Map();
+worker.onmessage = ev => {
+  const m = ev.data; const p = pending.get(m.id); if (!p) return;
+  if (m.type === 'progress') p.onProgress && p.onProgress(m.stage, m.f);
+  else if (m.type === 'result') { pending.delete(m.id); p.resolve(m); }
+  else if (m.type === 'error') { pending.delete(m.id); p.reject(new Error(m.message)); }
+};
+worker.onerror = e => { console.error('worker', e.message); };
+function runSim(spec, q, onProgress) { const id = ++S.simId; spec.customMats = S.customLib; return new Promise((resolve, reject) => { pending.set(id, { resolve, reject, onProgress }); worker.postMessage({ type: 'sim', id, spec, q }); }); }
+function qualityFor(level, wave) {
+  const se = mesh ? SA.sabineEyring(mesh, null, S.spec.env) : null; const T = se ? Math.max(...se.eyring.slice(1, 6)) : 1.5; const Vv = mesh ? mesh.volume : 100;
+  const tLen = Math.max(0.6, Math.min(level === 'fast' ? 4 : 7, 1.15 * T + 0.25));
+  const rays = { fast: 5000, normal: 14000, fine: 40000 }[level];
+  let fmax = { fast: Vv < 400 ? 180 : 0, normal: Vv < 2500 ? 300 : 0, fine: Vv < 12000 ? 450 : 250 }[level];
+  if (wave) fmax = Vv < 150 ? 600 : Vv < 600 ? 450 : Vv < 3000 ? 300 : 180;
+  return { rays, tLen: wave ? Math.min(tLen, 0.12 + Math.cbrt(Vv) / 343 * 2.5) : tLen, fmax, isOrder: level === 'fine' ? 3 : 2, wave: !!wave };
+}
+const STAGE = { geometry: '벽과 바닥을 면으로 나누는 중', early: '초기 반사와 회절 경로 찾는 중', rays: '음선 추적 중', synth: '울림 합성 중', voxel: '파동 격자 만드는 중', wave: '저음 파동 계산 중 (FDTD)', analyse: '지표 계산 중' };
+async function compute(level) {
+  if (S.computing) return; if (meshErr || !mesh) { status('벽이 서로 교차하거나 모양에 문제가 있어 계산할 수 없습니다. 방 모양을 먼저 바로잡아 주세요.', true); return; }
+  S.computing = true; $('#compute').disabled = true; const t0 = performance.now();
+  const q = qualityFor(level || $('#quality').value, false); const specAt = JSON.stringify(S.spec); const epoch = S.specEpoch;
+  try {
+    const res = await runSim(JSON.parse(specAt), q, (stage, f) => { status(STAGE[stage] + (f ? ` ${Math.round(f * 100)}%` : '') + '…'); prog(stageFrac(stage, f, q.fmax > 0)); });
+    // a different space was loaded while computing: this result belongs to the old room -> discard (v3 fix)
+    if (S.specEpoch !== epoch) { status('계산 중에 다른 공간을 불러와서 이전 결과는 버렸습니다. 다시 ‘소리 계산’을 누르세요.'); prog(0); return null; }
+    S.result = res; S.stale = JSON.stringify(S.spec) !== specAt; S.wave = null;
+    status(`계산 완료 · ${(res.ms / 1000).toFixed(1)}초 · 음선 ${res.ray.rays.toLocaleString()}개 · 거울상 ${res.is.count}개(${res.is.order}차) · 회절 ${res.diff}개` + (res.fd ? (res.fd.skipped ? ' · 저음 파동 계산은 건너뜀 (음원/청취자가 벽에 너무 가까움)' : ` · 파동 ${res.fd.fmax} Hz까지 (격자 ${res.fd.cells.toLocaleString()}칸)`) : ''));
+    prog(1); await setIR(res); updateChips(); drawPlan(); build3DPaths(); render3D(); if (S.tab === 'analyse') drawPlots(); if (S.tab === 'challenge') renderChallenges();
+  } catch (e) {
+    const msg = e.message === 'SRC_OUTSIDE' ? '음원(S)이 방 밖이나 벽 속에 있습니다. 방 안으로 옮기세요.' : e.message === 'RCV_OUTSIDE' ? '청취자(R)가 방 밖이나 벽 속에 있습니다. 방 안으로 옮기세요.' : '계산 중 오류: ' + e.message;
+    status(msg, true); prog(0);
+    return null; // never hand an older result to the caller (grading used to award stars from it) — v3 fix
+  } finally { S.computing = false; $('#compute').disabled = false; }
+  return S.result;
+}
+function stageFrac(stage, f, fd) { const order = fd ? ['geometry', 'early', 'rays', 'synth', 'voxel', 'wave', 'analyse'] : ['geometry', 'early', 'rays', 'synth', 'analyse']; const w = fd ? [0.02, 0.08, 0.45, 0.05, 0.05, 0.3, 0.05] : [0.03, 0.12, 0.7, 0.08, 0.07]; const i = order.indexOf(stage); let s = 0; for (let k = 0; k < i; k++) s += w[k]; return s + (w[i] || 0) * (f || 0); }
+function status(t, err) { const s = $('#status'); s.textContent = t; s.classList.toggle('err', !!err); }
+function prog(f) { $('#progBar').style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%'; }
+$('#compute').onclick = () => compute();
+
+// ------------------------------------------------------------------ audio
+let actx = null, master = null, dryG = null, simG = null, measG = null, convSim = null, convMeas = null, srcNode = null;
+const bufCache = {};
+function ensureAudio() {
+  if (actx) return actx;
+  actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  master = actx.createGain(); master.gain.value = +$('#vol').value; master.connect(actx.destination);
+  dryG = actx.createGain(); simG = actx.createGain(); measG = actx.createGain();
+  convSim = actx.createConvolver(); convSim.normalize = false; convMeas = actx.createConvolver(); convMeas.normalize = false;
+  convSim.connect(simG); convMeas.connect(measG); [dryG, simG, measG].forEach(g => g.connect(master));
+  applyAB(true);
+  if (S.result) setIR(S.result); if (S.spec.measured) loadMeasured();
+  return actx;
+}
+async function loadBuf(name) { if (bufCache[name]) return bufCache[name]; const r = await fetch('audio/' + name + '.wav'); if (!r.ok) throw new Error('audio ' + name); const ab = await r.arrayBuffer(); const ctx = actx || new OfflineAudioContext(1, 1, 48000); return (bufCache[name] = await ctx.decodeAudioData(ab)); }
+let irNorm = 1, measNorm = 1;
+async function setIR(res) {
+  if (!actx) return;
+  const n = res.L.length, b = actx.createBuffer(2, n, res.fs); b.copyToChannel(res.L, 0); b.copyToChannel(res.R, 1); convSim.buffer = b;
+  let e = 0; for (let i = 0; i < n; i++) e += (res.L[i] * res.L[i] + res.R[i] * res.R[i]) / 2; irNorm = 1 / Math.sqrt(e || 1);
+  applyAB();
+}
+async function loadMeasured() {
+  if (!actx || !S.spec.measured) return; const buf = await loadBuf(S.spec.measured); convMeas.buffer = buf;
+  const d = buf.getChannelData(0); let e = 0; for (let i = 0; i < d.length; i++) e += d[i] * d[i]; measNorm = 1 / Math.sqrt(e || 1); applyAB();
+}
+function applyAB(now) {
+  if (!actx) return; const t = actx.currentTime, abs = $('#absLevel').checked;
+  // absolute: our IR is calibrated to pressure re 1 m (direct sound at 1 m = 1); use a fixed reference gain (listener 4 m from source ≈ 1/4)
+  const simLevel = abs ? 0.25 / 0.25 * 1.0 : irNorm * 0.5;
+  const g = { dry: S.ab === 'dry' ? (abs ? 0.25 : 0.5) : 0, sim: S.ab === 'sim' ? (abs ? 1.0 : simLevel) : 0, meas: S.ab === 'meas' ? measNorm * 0.5 : 0 };
+  [[dryG, g.dry], [simG, g.sim], [measG, g.meas]].forEach(([node, v]) => { node.gain.cancelScheduledValues(t); if (now) node.gain.value = v; else node.gain.setTargetAtTime(v, t, 0.03); });
+}
+function setAB(v) { S.ab = v; $$('[data-ab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ab === v)); applyAB(); }
+$$('[data-ab]').forEach(b => b.onclick = () => { if (b.disabled) return; ensureAudio(); setAB(b.dataset.ab); if (b.dataset.ab === 'meas') loadMeasured(); });
+$('#absLevel').onchange = () => applyAB();
+$('#vol').oninput = () => { if (master) master.gain.value = +$('#vol').value; };
+async function play() {
+  ensureAudio(); if (actx.state === 'suspended') await actx.resume();
+  if (S.stale && !S.computing) await compute();
+  stop();
+  const buf = await loadBuf(S.sound);
+  srcNode = actx.createBufferSource(); srcNode.buffer = buf; srcNode.loop = $('#loop').checked;
+  if (srcNode.loop) { srcNode.loopEnd = buf.duration + 1.5; } // a little silence so the tail rings out
+  srcNode.connect(dryG); srcNode.connect(convSim); srcNode.connect(convMeas); srcNode.start();
+  if (S.spec.measured && !convMeas.buffer) loadMeasured();
+}
+function stop() { if (srcNode) { try { srcNode.stop(); } catch (e) { } srcNode.disconnect(); srcNode = null; } }
+$('#play').onclick = play; $('#stop').onclick = stop;
+let SOUNDS = [];
+async function loadSounds() {
+  try { SOUNDS = await (await fetch('audio/sources.json')).json(); } catch (e) { SOUNDS = []; }
+  $('#sounds').innerHTML = SOUNDS.map(s => `<button class="sound" data-sound="${s.id}" aria-pressed="${s.id === S.sound}">${s.ko}<small>${s.en} · ${s.seconds}s</small></button>`).join('');
+  $$('[data-sound]').forEach(b => b.onclick = () => { S.sound = b.dataset.sound; $$('[data-sound]').forEach(x => x.setAttribute('aria-pressed', x === b)); if (srcNode) play(); });
+  $('#credits').innerHTML = SOUNDS.map(s => `${s.ko} — ${s.credit} (${s.license})`).join('<br>') + '<br>실측 임펄스 응답 — Racquetball-court IR study, Zenodo 15739328 (CC BY 4.0)<br>재질 흡음률 — pyroomacoustics materials.json (MIT, Vorländer 부록 표 기반), RoomTreat (CC BY 4.0), sengpielaudio<br>3D 렌더링 — three.js r160 (MIT)';
+}
+
+// ------------------------------------------------------------------ plots
+function setupPlot(cv) { const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 3); cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr); const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = '#fff'; g.fillRect(0, 0, r.width, r.height); return [g, r.width, r.height]; }
+const BCOL = ['#8c2d04', '#b8481f', '#d07a2a', '#7f8f3a', '#1f6b66', '#2b4c7e'];
+function drawLF() {
+  const R = S.result; const [g, W, H] = setupPlot($('#lfPlot')); const l = 34, b = 20, t = 10, r = 8;
+  g.font = '10px sans-serif'; g.fillStyle = '#6b717a'; g.strokeStyle = '#efe9dc';
+  if (!R || !R.lf) { g.fillText('계산 결과가 없습니다', 40, 40); $('#lfText').textContent = '아래 ‘소리 계산’을 누르면 청취자 위치의 저음 응답이 그려집니다.'; return; }
+  const L = R.lf, f0 = L.f[0], f1 = L.f[L.f.length - 1]; let mx = -Infinity; L.db.forEach(v => mx = Math.max(mx, v)); const top = Math.ceil(mx / 5) * 5, span = 40;
+  const X = f => l + Math.log(f / f0) / Math.log(f1 / f0) * (W - l - r), Y = d => t + Math.min(1, Math.max(0, (top - d) / span)) * (H - t - b);
+  for (let d = 0; d <= span; d += 10) { const y = Y(top - d); g.beginPath(); g.moveTo(l, y); g.lineTo(W - r, y); g.stroke(); g.fillText(d ? '-' + d : '0 dB', 4, y + 3); }
+  [20, 31.5, 50, 63, 80, 125, 200, 250, 315, 400].filter(f => f >= f0 && f <= f1).forEach(f => { const x = X(f); g.beginPath(); g.moveTo(x, t); g.lineTo(x, H - b); g.stroke(); g.fillText(String(f), x - 8, H - 5); });
+  const T = avgB(R.metrics.T30, [3, 4]) || 1, V = R.se.V, fsch = 2000 * Math.sqrt(T / V);
+  if (fsch > f0 && fsch < f1) { g.strokeStyle = '#a86b00'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(X(fsch), t); g.lineTo(X(fsch), H - b); g.stroke(); g.setLineDash([]); g.fillStyle = '#a86b00'; g.fillText('슈뢰더 ' + Math.round(fsch) + ' Hz', Math.min(X(fsch) + 3, W - 80), t + 9); }
+  g.strokeStyle = '#1f6b66'; g.lineWidth = 1.6; g.beginPath(); L.f.forEach((f, i) => { const x = X(f), y = Y(L.db[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.fillStyle = '#b8481f'; L.peaks.forEach(p => { const x = X(p.f), y = Y(p.db); g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill(); });
+  const pk = L.peaks.filter(p => p.f < fsch * 1.2).slice(0, 5).map(p => Math.round(p.f) + ' Hz').join(', ');
+  $('#lfText').textContent = (L.wave ? `${L.fx} Hz 아래는 파동 계산(FDTD) 결과입니다. ` : '이 품질에서는 저음 파동 계산을 하지 않았습니다. 곡선은 음선 계산에서 나온 근사라 공진이 정확하지 않습니다. ‘보통’이나 ‘정밀’ 품질로 다시 계산하세요. ')
+    + `슈뢰더 주파수 ${Math.round(fsch)} Hz(2000·√(T/V)) 아래에서는 방이 몇 개의 공진(룸 모드)으로 울려서, 자리마다 특정 저음이 크게 붕붕거리거나 사라집니다.` + (pk ? ` 이 자리의 두드러진 공진: ${pk}. 빨간 점이 공진 봉우리입니다.` : '');
+}
+function drawPlots() {
+  const R = S.result; renderMetrics(); drawLF();
+  const [g, W, H] = setupPlot($('#decayPlot')); const l = 34, b = 20, t = 8, r = 8;
+  g.font = '10px sans-serif'; g.fillStyle = '#6b717a'; g.strokeStyle = '#efe9dc';
+  if (!R) { g.fillText('계산 결과가 없습니다', 40, 40); $('#decayLegend').innerHTML = ''; } else {
+    const tmax = Math.min(R.L.length / R.fs, 1.3 * Math.max(...R.metrics.T30.slice(1, 7).map(v => v || 0.3)) + 0.1);
+    for (let d = 0; d >= -60; d -= 10) { const y = t + (-d / 60) * (H - t - b); g.beginPath(); g.moveTo(l, y); g.lineTo(W - r, y); g.stroke(); g.fillText(d + ' dB', 2, y + 3); }
+    const tick = tmax > 3 ? 1 : tmax > 1 ? 0.5 : 0.1; for (let x = 0; x <= tmax; x += tick) { const px = l + x / tmax * (W - l - r); const lb = x.toFixed(1) + 's'; g.fillText(lb, Math.min(W - g.measureText(lb).width - 2, px - 8), H - 5); }
+    R.curves.forEach((c, k) => { g.strokeStyle = BCOL[k]; g.lineWidth = 1.6; g.beginPath(); c.forEach((v, i) => { const x = l + (i * 0.01) / tmax * (W - l - r); if (x > W - r) return; const y = t + Math.min(1, -v / 60) * (H - t - b); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); });
+    $('#decayLegend').innerHTML = [125, 250, 500, 1000, 2000, 4000].map((f, k) => `<span><i style="background:${BCOL[k]}"></i>${f >= 1000 ? f / 1000 + 'k' : f} Hz</span>`).join('');
+  }
+  const [e, W2, H2] = setupPlot($('#echoPlot')); e.font = '10px sans-serif'; e.fillStyle = '#6b717a'; e.strokeStyle = '#efe9dc';
+  if (!R) { e.fillText('계산 결과가 없습니다', 40, 40); return; }
+  const tm = 0.3, fl = -60; let mx = 0; R.echogram.forEach(v => mx = Math.max(mx, v));
+  for (let d = 0; d >= fl; d -= 20) { const y = t + (-d / -fl) * (H2 - t - b); e.beginPath(); e.moveTo(l, y); e.lineTo(W2 - r, y); e.stroke(); e.fillText(d + ' dB', 2, y + 3); }
+  for (let x = 0; x <= tm + 1e-9; x += 0.05) { const lb = Math.round(x * 1000) + 'ms', tw = e.measureText(lb).width; e.fillText(lb, Math.min(W2 - tw - 2, l + x / tm * (W2 - l - r) - 10), H2 - 5); }
+  const t0 = R.paths.length ? R.paths[0].d - R.shift : 0;
+  e.fillStyle = 'rgba(31,107,102,.18)'; e.strokeStyle = 'rgba(29,33,38,.65)'; e.lineWidth = 1; e.beginPath();
+  for (let k = 0; k < R.echogram.length && k * 0.001 <= tm + t0; k++) { const tt = k * 0.001 - t0; if (tt < 0) continue; const x = l + tt / tm * (W2 - l - r); const db = 10 * Math.log10(R.echogram[k] / mx + 1e-12); const y = t + Math.min(1, db / fl) * (H2 - t - b); k ? e.lineTo(x, y) : e.moveTo(x, y); } e.stroke();
+  R.paths.forEach(p => { const tt = p.d - R.paths[0].d; if (tt > tm) return; const x = l + tt / tm * (W2 - l - r); const a = p.g[4] * p.g[4]; const ref = R.paths[0].g[4] * R.paths[0].g[4]; const db = 10 * Math.log10(a / ref + 1e-12); const y = t + Math.min(1, db / fl) * (H2 - t - b); e.strokeStyle = p.df ? '#1f6b66' : p.o === 0 ? '#1d2126' : p.o === 1 ? '#b8481f' : '#a86b00'; e.lineWidth = p.o === 0 ? 2 : 1.2; e.beginPath(); e.moveTo(x, H2 - b); e.lineTo(x, y); e.stroke(); });
+}
+function renderMetrics() {
+  const R = S.result; if (!R) { $('#metricsTable').innerHTML = '<p class="meaning">아래 ‘소리 계산’을 누르면 표가 채워집니다.</p>'; return; }
+  const m = R.metrics, bands = [1, 2, 3, 4, 5, 6];
+  const row = (name, arr, d, unit, star) => `<tr><td>${name}</td>${bands.map(b => `<td class="num">${fmt(arr[b], d)}${star && star[b] ? '*' : ''}</td>`).join('')}<td>${unit}</td></tr>`;
+  const G = R.metrics.G || [];
+  const tm = avgB(m.T30, [3, 4]), dm = avgB(m.D50, [3, 4, 5]);
+  const verdict = tm == null ? '' : tm < 0.5 ? '거의 울리지 않는 방입니다. 녹음실이나 방송 부스에 알맞고, 음악은 메말라 들립니다.' : tm < 0.9 ? '말하기에 좋은 방입니다. 강의실·회의실 수준입니다.' : tm < 1.5 ? '말은 조금 울리지만 실내악·노래에는 괜찮은 수준입니다.' : tm < 2.4 ? '콘서트홀 수준의 풍성한 잔향입니다. 말은 알아듣기 어려워집니다.' : '성당처럼 아주 오래 울립니다. 성가에는 좋지만 말은 거의 알아들을 수 없습니다.';
+  const v2 = dm == null ? '' : dm >= 0.5 ? ' 말의 명료도(D50)는 좋습니다.' : dm >= 0.3 ? ' 말의 명료도(D50)는 보통입니다.' : ' 말의 명료도(D50)가 낮아서 말이 뭉개집니다.';
+  $('#metricsTable').innerHTML = `<p class="verdict">${verdict}${v2}</p><table><thead><tr><th>지표</th>${bands.map(b => `<th>${SA.BANDS[b] >= 1000 ? SA.BANDS[b] / 1000 + 'k' : SA.BANDS[b]}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${row('T30', m.T30, 2, 's', m.T30from20)}${row('EDT', m.EDT, 2, 's')}${row('C80', m.C80, 1, 'dB')}${row('D50', m.D50, 2, '')}${G.length ? row('G', G, 1, 'dB') : ''}
+    ${row('Sabine', R.se.sabine, 2, 's')}${row('Eyring', R.se.eyring, 2, 's')}</tbody></table>
+    ${S.stale ? '<p class="meaning" style="color:var(--amber)">공간이 바뀌었습니다. 다시 계산하면 갱신됩니다.</p>' : ''}
+    ${(m.T30from20 || []).some((f, b) => f && bands.includes(b)) ? '<p class="meaning">* 일부 대역은 울림이 계산 시간보다 길어 35 dB까지 감쇠하지 못했습니다. 그 대역의 T30은 ISO 3382-1에 따라 25 dB 감쇠(T20)로 대신 계산했습니다. ‘정밀’ 품질은 더 길게 계산합니다.</p>' : ''}
+    <p class="meaning">Sabine/Eyring은 방 전체 평균을 공식으로 계산한 값이고, T30 등은 청취자 위치에서 시뮬레이션한 값입니다. 둘의 차이는 소리가 고르게 퍼지지 않는 정도를 보여 줍니다.</p>`;
+}
+
+// ------------------------------------------------------------------ wave view
+let waveTimer = 0;
+$('#waveRun').onclick = async () => {
+  if (S.computing) return; S.computing = true; $('#waveRun').disabled = true; $('#waveStatus').textContent = '';
+  try {
+    const q = qualityFor('fast', true); q.rays = 600;
+    const res = await runSim(clone(S.spec), q, (st, f) => { status(STAGE[st] + (f ? ` ${Math.round(f * 100)}%` : '') + '…'); prog(f || 0); });
+    if (res.fd && res.fd.skipped) throw new Error('음원이나 청취자가 벽에 너무 붙어 있어 파동을 계산할 수 없습니다. 조금 떨어뜨려 주세요.');
+    if (!res.frames || !res.frames.length) throw new Error('no frames');
+    const samp = []; res.frames.slice(Math.floor(res.frames.length * 0.15), Math.floor(res.frames.length * 0.6)).forEach(fr => { for (let i = 0; i < fr.length; i += 7) if (isFinite(fr[i])) samp.push(Math.abs(fr[i])); }); samp.sort((a, b) => a - b);
+    const sc = samp.length ? samp[Math.floor(samp.length * 0.97)] : 1;
+    S.wave = { frames: res.frames, grid: res.grid, k: 0, scale: sc || 1, t: 0, frame: null };
+    $('#waveStatus').textContent = `${res.fd.fmax} Hz까지 · 격자 ${res.grid.nx}×${res.grid.ny} · ${(res.grid.dx * 100).toFixed(0)} cm`;
+    status('파동 계산 완료. 평면도에서 재생됩니다.'); prog(1); $('#wavePlay').disabled = false;
+    if (S.view === '3d') setView('split'); playWave();
+  } catch (e) { status('파동 계산 오류: ' + (e.message === 'SRC_OUTSIDE' || e.message === 'RCV_OUTSIDE' ? '음원/청취자를 방 안으로 옮기세요.' : e.message), true); }
+  finally { S.computing = false; $('#waveRun').disabled = false; }
+};
+function playWave() {
+  clearInterval(waveTimer); if (!S.wave) return; S.wave.k = 0;
+  waveTimer = setInterval(() => { const W = S.wave; if (!W) { clearInterval(waveTimer); return; } W.frame = W.frames[W.k]; W.t = W.k * W.grid.frameDt; drawPlan(); W.k++; if (W.k >= W.frames.length) { clearInterval(waveTimer); W.k = W.frames.length - 1; } }, 50);
+}
+$('#wavePlay').onclick = playWave;
+
+// ------------------------------------------------------------------ challenges
+const CHALLENGES = [
+  { id: 'lecture', preset: 'lecture', title: '뒷자리까지 또렷한 강의실', text: '울리는 강의실을 고쳐서 맨 뒷자리에서도 말이 잘 들리게 하세요. 흡음 천장, 커튼, 카펫을 써 보세요.',
+    goals: [{ k: 'D50', bands: [3, 4, 5], op: '>=', v: 0.5, label: '말의 명료도 D50 (500 Hz–2 kHz)' }, { k: 'T30', bands: [3, 4], op: '<=', v: 0.8, label: '잔향 T30 (500 Hz–1 kHz)', unit: 's' }] },
+  { id: 'hall', preset: 'hall', title: '콘서트홀의 황금 잔향', text: '미장 벽과 빈 객석뿐인 홀은 7초 넘게 울립니다. 교향악에 좋은 잔향은 약 2초입니다. 벽과 객석 재질을 바꿔서 맞추세요.',
+    start: s => { s.loop.forEach(w => w.mat = 'plaster'); s.platforms[1].mat = s.platforms[1].topMat = 'linoleum'; s.balconies.forEach(b => b.topMat = 'linoleum'); },
+    goals: [{ k: 'T30', bands: [3, 4], op: 'between', v: [1.8, 2.3], label: '잔향 T30 (500 Hz–1 kHz)', unit: 's' }, { k: 'C80', bands: [3, 4, 5], op: 'between', v: [-3, 2], label: '음악 명료도 C80', unit: 'dB' }] },
+  { id: 'church', preset: 'church', title: '성당을 말하기 좋은 공간으로', text: '긴 잔향은 성가에는 좋지만 설교는 알아듣기 어렵습니다. 성당의 모양은 그대로 두고 재질만 바꿔서 잔향을 2초 아래로 낮추세요.',
+    goals: [{ k: 'T30', bands: [3, 4], op: '<=', v: 2.0, label: '잔향 T30 (500 Hz–1 kHz)', unit: 's' }, { k: 'D50', bands: [3, 4, 5], op: '>=', v: 0.35, label: 'D50 (500 Hz–2 kHz)' }] },
+  { id: 'rooms', preset: 'rooms', title: '옆방에서도 말 알아듣기', text: '옆방의 청취자에게는 문틈을 돌아 나온 소리만 닿아서 말이 뭉개집니다. 문을 옮기거나 넓혀서 말의 명료도를 높이세요.',
+    goals: [{ k: 'D50', bands: [3, 4, 5], op: '>=', v: 0.2, label: '말의 명료도 D50 (500 Hz–2 kHz)' }] },
+  { id: 'booth', preset: 'booth', title: '완벽한 녹음 부스', text: '맨 벽, 리놀륨 바닥, 석고 천장뿐인 작은 방을 거의 울리지 않는 녹음 부스로 바꾸세요.',
+    start: s => { s.loop.forEach(w => w.mat = 'plaster'); s.ceiling.mat = 'plasterboard_ceiling'; s.floorMat = 'linoleum'; },
+    goals: [{ k: 'T30', bands: [2, 3, 4, 5], op: '<=', v: 0.2, label: '잔향 T30 (250 Hz–2 kHz)', unit: 's' }, { k: 'C80', bands: [3, 4, 5], op: '>=', v: 15, label: 'C80', unit: 'dB' }] },
+];
+function evalGoal(gl, m) { const v = avgB(m[gl.k] || [], gl.bands); if (v == null) return { v, ok: false }; const ok = gl.op === '>=' ? v >= gl.v : gl.op === '<=' ? v <= gl.v : v >= gl.v[0] && v <= gl.v[1]; return { v, ok }; }
+function goalText(gl) { return gl.op === 'between' ? `${gl.v[0]} ~ ${gl.v[1]}${gl.unit ? ' ' + gl.unit : ''}` : `${gl.op === '>=' ? '≥' : '≤'} ${gl.v}${gl.unit ? ' ' + gl.unit : ''}`; }
+function renderChallenges() {
+  const best = JSON.parse(store.get('sa.stars') || '{}');
+  $('#challenges').innerHTML = CHALLENGES.map(c => {
+    const mine = S.challenge === c.id; const active = mine && S.result; const m = active ? S.result.metrics : null;
+    const goals = c.goals.map(gl => { const r = m ? evalGoal(gl, m) : null; return `<div class="goal ${r ? (r.ok ? 'ok' : 'no') : ''}">${r ? (r.ok ? '✓' : '✗') : '·'} ${gl.label} ${goalText(gl)}${r ? ` — 지금 ${fmt(r.v, gl.k === 'D50' ? 2 : gl.k === 'C80' || gl.k === 'G' ? 1 : 2)}` : ''}</div>`; }).join('');
+    const st = best[c.id] || 0;
+    return `<div class="chal"><h4>${c.title} <span class="stars" aria-label="별 ${st}개">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span></h4><p>${c.text}</p>${goals}
+      <div class="row"><button class="btn small" data-chal="${c.id}">${mine ? '채점하기' : '이 과제 시작'}</button>${mine && S.stale ? '<span class="status">공간이 바뀌었습니다 — 채점하면 다시 계산합니다</span>' : ''}</div></div>`;
+  }).join('') + '<p class="meaning">별: 목표를 모두 맞추면 ★★, 정밀 계산으로 확인하면 ★★★, 하나라도 맞추면 ★.</p>';
+  $$('[data-chal]').forEach(b => b.onclick = () => {
+    const c = CHALLENGES.find(x => x.id === b.dataset.chal);
+    if (S.challenge !== c.id) { loadPreset(c.preset); if (c.start) { c.start(S.spec); syncControls(); specChanged(true); } S.challenge = c.id; renderBanner(); fitPlan(); setTab('build'); flash(`과제 “${c.title}”를 불러왔습니다. 목표는 평면도 위 상자에 있습니다. 고친 뒤 ‘채점’을 누르세요.`); return; }
+    gradeChallenge(c);
+  });
+}
+async function gradeChallenge(c) {
+  const lvl = $('#quality').value; const r = await compute(); if (!r) return;
+  const oks = c.goals.map(gl => evalGoal(gl, r.metrics).ok); const all = oks.every(Boolean), some = oks.some(Boolean);
+  const stars = all ? (lvl === 'fine' ? 3 : 2) : some ? 1 : 0; const best2 = JSON.parse(store.get('sa.stars') || '{}'); best2[c.id] = Math.max(best2[c.id] || 0, stars); store.set('sa.stars', JSON.stringify(best2));
+  renderBanner(); if (S.tab === 'challenge') renderChallenges();
+  flash(all ? `성공! 목표를 모두 맞췄습니다 (별 ${stars}개).` : some ? '일부 목표만 맞췄습니다. 상자의 ✗ 항목을 보세요.' : '아직 목표에 못 미칩니다. 상자의 지금 값을 보고 다시 고쳐 보세요.');
+}
+
+// ------------------------------------------------------------------ verify tab
+const VAL = { bands: [125, 250, 500, 1000, 2000, 4000],
+  sim: { T30: [4.23, 5.43, 5.23, 4.33, 3.46, 2.55], EDT: [4.01, 5.50, 5.03, 4.33, 3.37, 2.45], C80: [-5.44, -6.01, -6.10, -4.76, -3.84, -1.57], D50: [0.12, 0.13, 0.14, 0.17, 0.20, 0.29] },
+  meas: { T30: [2.04, 4.49, 5.75, 4.97, 4.56, 3.44], EDT: [1.86, 3.42, 5.08, 4.35, 4.27, 3.05], C80: [-1.26, -4.62, -6.94, -5.61, -5.18, -3.02], D50: [0.20, 0.17, 0.11, 0.15, 0.15, 0.23] } };
+const TESTS_NODE = [
+  ['공기 흡수가 ISO 9613-2 표와 일치 (10% 이내)', '250 Hz–8 kHz 모두 통과'],
+  ['상자 방에서 음선 추적 잔향 = Eyring 공식 (12% 이내)', '250–2k Hz: 1.04/0.98, 0.97/0.98, 1.00/0.97, 0.95/0.94 s'],
+  ['거울상 개수: 상자 방 1차 6개, 2차 18개', '정확히 일치'],
+  ['직접음 크기 = 1/거리', '0.2499 (기대값 0.25)'],
+  ['UTD 회절 = ITU-R P.526 칼날 회절 (±1.5 dB)', 'v=0.6–4.6에서 0.9–1.4 dB 차이'],
+  ['칸막이 뒤에서도 회절음이 들림, 저음이 더 잘 돌아옴', '125 Hz / 4 kHz = 5.6배'],
+  ['FDTD 자유 음장 보정 = 1/거리 (10% 이내)', '0.490 (기대값 0.5)'],
+  ['FDTD 상자 방 첫 공진 c/2L (3% 이내)', '45.25 Hz (이론 45.24 Hz)'],
+  ['온도 기울기에 따른 음선 휨 = 원호 반지름 c/(dc/dz)', '100 m에서 8.49 m (이론 8.49 m)'],
+  ['잔향/직접음 에너지 = 확산 음장 이론 16πr²/R (±1.5 dB)', '11.34 dB (이론 11.21 dB)'],
+  ['저음 FDTD + 고음 기하 합성: 125 Hz 에너지 일치 (±3 dB)', '−1.12 dB'],
+  ['(v3) 유리창·문짝이 양쪽에서 소리를 막음 — 유리창 방 잔향 ≈ 창 없는 방', '500 Hz: 창 없음 2.53 s, 유리창 2.49 s, 뚫린 구멍 1.12 s'],
+  ['(v3) 얇은 벽·벽에 붙은 음원·열린 창도 저음 계산이 정상', '열린 창: 0.3초 동안 감쇠 2.9 → 11.5 dB'],
+  ['(v3) 계산 시간이 잔향보다 짧아도 T30 보정 (Lundeby)', 'T = 7 s를 3 s에서 자른 IR → 6.5–6.9 s'],
+  ['(v3) 재질 물리 모델: 반무한 흡음재 → 특성 임피던스', '±2% 이내 일치'],
+  ['(v3) 판 진동 흡음의 공진 = 60/√(m·D)', '60.0 Hz (공식 59.9 Hz)'],
+  ['(v3) 타공판 공진 = 헬름홀츠 공식 (±12%)', '278 Hz (공식 295 Hz)'],
+  ['(v3) 물리 모델 vs 측정 표 (암면·석고보드·목재 라이닝 등 5종)', 'rms 차이 0.04–0.16'],
+  ['(v3) 주파수별 벽 흡음(FDTD): 관 속 수직 반사율 = 이론', '63–125 Hz ±0.05, 180–250 Hz ±0.1 (격자 오차)'],
+  ['(v3) 저음 분석: 상자 방 공진 봉우리 = 이론 룸 모드 (2% 이내)', '24.0, 33.9, 41.2, 48.2, 58.3, 62.2 Hz']
+];
+function renderVerify() {
+  const b = VAL.bands, cell = (v, d) => `<td class="num">${fmt(v, d)}</td>`;
+  const rows = ['T30', 'EDT', 'C80', 'D50'].map(k => `<tr><td>${k} 계산</td>${VAL.sim[k].map(v => cell(v, k === 'D50' ? 2 : k === 'C80' ? 1 : 2)).join('')}</tr><tr><td>${k} 실측</td>${VAL.meas[k].map(v => cell(v, k === 'D50' ? 2 : k === 'C80' ? 1 : 2)).join('')}</tr>`).join('');
+  const err = VAL.sim.T30.map((v, i) => Math.round(100 * (v - VAL.meas.T30[i]) / VAL.meas.T30[i]));
+  $('#valTable').innerHTML = `<div style="overflow-x:auto"><table><thead><tr><th>Hz</th>${b.map(f => `<th>${f >= 1000 ? f / 1000 + 'k' : f}</th>`).join('')}</tr></thead><tbody>${rows}<tr><td>T30 오차</td>${err.map(v => `<td class="num" style="color:${Math.abs(v) <= 15 ? 'var(--ok)' : 'var(--bad)'}">${v > 0 ? '+' : ''}${v}%</td>`).join('')}</tr></tbody></table></div>`;
+  $('#testList').innerHTML = `<table><tbody>${TESTS_NODE.map(([a, r]) => `<tr><td style="white-space:normal">✓ ${a}</td><td class="num" style="white-space:normal">${r}</td></tr>`).join('')}</tbody></table>`;
+}
+$('#goCourt').onclick = () => { loadPreset('court'); setTab('listen'); };
+
+// ------------------------------------------------------------------ boot
+renderTools();
+const saved = (() => { try { return JSON.parse(store.get('sa.last') || 'null'); } catch (e) { return null; } })();
+if (saved && saved.spec && PRESETS[saved.presetId] && !TEST) { S.presetId = saved.presetId; $('#preset').value = saved.presetId; loadPreset(saved.presetId); S.spec = saved.spec; syncControls(); specChanged(true); fitPlan(); fit3D(); $('#abMeas').disabled = !S.spec.measured; }
+else loadPreset('lecture');
+setView(innerWidth < 900 ? 'plan' : 'split');
+loadSounds();
+requestAnimationFrame(() => { resizePlan(); fitPlan(); resize3D(); fit3D(); });
+
+// ------------------------------------------------------------------ in-page tests (?test=1)
+if (TEST) runTests();
+async function runTests() {
+  const res = []; const t = async (name, fn) => { try { const info = await fn(); res.push([true, name, info || '']); } catch (e) { res.push([false, name, e.message]); } };
+  const ok = (c, m) => { if (!c) throw new Error(m); };
+  const errors = []; window.addEventListener('error', e => errors.push(e.message));
+  await t('core: air absorption 4 kHz @20°C/70% ≈ 22.9 dB/km', () => { const v = SA.airAbsDb(4000, 20, 70) * 1000; ok(Math.abs(v - 22.9) / 22.9 < 0.1, v); return v.toFixed(1); });
+  await t('core: UTD half-plane vs ITU-R P.526 at v≈1.08', () => { const c = 343, f = 1000, k = 2 * Math.PI * f / c, d = 10, h = 1; const phi = (x, y) => { let a = Math.atan2(-x, -y); if (a < 0) a += 2 * Math.PI; return a; }; const A = SA.utdField(k, 2, phi(-d, -h), phi(d, -h), Math.hypot(d, h), Math.hypot(d, h), 1); const att = -20 * Math.log10(A * 2 * d); ok(Math.abs(att - 14.4) < 1.5, att); return att.toFixed(1) + ' dB'; });
+  await t('core: shoebox image sources order1=6, order2=18', () => { SA.defMat('tst', { a: Array(8).fill(0.1), s: Array(8).fill(0), tl: Array(8).fill(200) }); const sp = SA.shoebox(8, 6, 3, { walls: 'tst', floor: 'tst', ceiling: 'tst' }); const m = SA.buildMesh(sp), b = SA.buildBVH(m.tris), M = SA.matArrays(m); const is = SA.imageSources(m, b, M, [2, 2, 1.5], [6, 4, 1.2], 2, { T: 20, RH: 50 }); ok(is.list.filter(x => x.order === 1).length === 6 && is.list.filter(x => x.order === 2).length === 18, 'counts'); });
+  for (const id of Object.keys(PRESETS)) await t('preset builds: ' + id, () => { loadPreset(id); ok(mesh && mesh.tris.length > 10, 'mesh'); ok(roomGroup.children.length > 0, '3D'); return mesh.tris.length + ' tris'; });
+  await t('UI: add door, partition, column, platform; undo restores', () => {
+    loadPreset('living'); const before = JSON.stringify(S.spec);
+    pushUndo(); addOpening(S.spec.loop[1], 0.5, 'door', wallLen(1)); specChanged(true);
+    pushUndo(); S.spec.partitions.push({ a: [2, 0.2], b: [2, 2], thick: 0.15, h: 1.8, mat: 'gypsum_stud', openings: [] }); specChanged(true);
+    pushUndo(); S.spec.columns.push({ x: 4, y: 3, r: 0.2, shape: 'square', mat: 'concrete' }); specChanged(true);
+    ok(mesh.edges.length > 0, 'edges'); for (let i = 0; i < 3; i++) doUndo(); ok(JSON.stringify(S.spec) === before, 'undo mismatch');
+  });
+  await t('sim: court (fast) gives finite T30 + plausible vs measured', async () => { loadPreset('court'); const r = await compute('fast'); ok(r && r.metrics.T30[3] > 3 && r.metrics.T30[3] < 8, 'T30@500 ' + (r && r.metrics.T30[3])); return 'T30@500 ' + fmt(r.metrics.T30[3]); });
+  await t('sim: re-fire after reset (no stale state)', async () => { loadPreset('court'); const a = await compute('fast'); loadPreset('court'); const b = await compute('fast'); ok(a && b && Math.abs(a.metrics.T30[3] - b.metrics.T30[3]) < 0.01, 'deterministic'); ok(!S.stale, 'stale flag'); });
+  await t('sim: source outside -> friendly error, app survives', async () => { loadPreset('living'); S.spec.source = [50, 50, 1]; specChanged(true); const r0 = S.result; const rErr = await compute('fast'); ok($('#status').classList.contains('err'), 'no error shown'); ok(rErr === null, 'failed compute must not return an older result (grading)'); S.spec.source = [3.9, 1.2, 1.2]; specChanged(true); const r = await compute('fast'); ok(r && r !== r0, 'recover'); });
+  await t('audio: convolution renders non-silent output (OfflineAudioContext)', async () => {
+    loadPreset('booth'); const r = await compute('fast'); const clap = await loadBuf('clap'); const len = r.L.length + clap.length;
+    const oc = new OfflineAudioContext(2, len, 48000); const cv = oc.createConvolver(); cv.normalize = false; const b = oc.createBuffer(2, r.L.length, 48000); b.copyToChannel(r.L, 0); b.copyToChannel(r.R, 1); cv.buffer = b;
+    const s = oc.createBufferSource(); s.buffer = clap; s.connect(cv); cv.connect(oc.destination); s.start(); const out = await oc.startRendering();
+    let e = 0; const d = out.getChannelData(0); for (let i = 0; i < d.length; i++) e += d[i] * d[i]; ok(e > 1e-6, 'silent ' + e); return 'energy ' + e.toExponential(2);
+  });
+  await t('sim: result of a room replaced mid-compute is discarded', async () => { loadPreset('booth'); const p = compute('fast'); loadPreset('living'); const r = await p; ok(r === null && S.result === null, 'stale result kept'); });
+  await t('wave: FDTD frames produced and drawn', async () => { loadPreset('rooms'); const q = qualityFor('fast', true); q.rays = 300; q.fmax = 250; const r = await runSim(clone(S.spec), q); ok(r.frames && r.frames.length > 10, 'frames'); S.wave = { frames: r.frames, grid: r.grid, k: 5, scale: 1e-3, t: 0, frame: r.frames[5] }; drawPlan(); S.wave = null; return r.frames.length + ' frames'; });
+  await t('UI: self-intersecting room -> warning, compute refused, undo restores', async () => {
+    loadPreset('lecture'); pushUndo(); S.spec.loop[0].x = 8; S.spec.loop[0].y = 10; specChanged(true);
+    ok(meshErr && meshErr.message === 'SELF', 'not detected'); ok(!$('#planWarn').hidden, 'warning hidden');
+    await compute('fast'); ok($('#status').classList.contains('err'), 'compute not refused');
+    doUndo(); ok(!meshErr && $('#planWarn').hidden, 'undo did not clear'); ok(!$('#status').classList.contains('err'), 'stale error stayed');
+  });
+  await t('UI: challenge banner shows goals, grading fills values', async () => {
+    setTab('challenge'); document.querySelector('[data-chal=booth]').click(); ok(!$('#banner').hidden && S.challenge === 'booth', 'banner');
+    await gradeChallenge(CHALLENGES.find(c => c.id === 'booth')); ok(/지금/.test($('#banner').textContent), 'no values'); ok(/✗/.test($('#banner').textContent), 'start state should fail');
+  });
+  await t('UI: 재질 만들기 — editor computes α, saves, applies to a wall, and the worker uses it', async () => {
+    loadPreset('court'); setTab('build'); S.sel = { type: 'wall', i: 1 }; renderSel();
+    const btn = document.querySelector('.mk-open'); ok(btn, 'make button'); btn.click();
+    const ed = document.querySelector('.mated'); ok(ed, 'editor'); const sel = ed.querySelector('.mk-kind'); sel.value = 'porous'; sel.onchange({ target: sel });
+    const rng = document.querySelector('.mated input[type=range]'); rng.value = 0.15; rng.oninput();
+    const n0 = Object.keys(S.customLib).length; document.querySelector('.mk-save').click();
+    const ids = Object.keys(S.customLib); ok(ids.length === n0 + 1, 'saved'); const id = ids[ids.length - 1];
+    ok(S.spec.loop[1].mat === id, 'applied to wall'); ok(MATBY[id].a[4] > 0.8, 'thick porous absorbs at 1 kHz: ' + MATBY[id].a[4]);
+    const r0 = await compute('fast'); S.spec.loop.forEach(w => w.mat = id); specChanged(true); const r1 = await compute('fast');
+    ok(r0 && r1 && r1.metrics.T30[4] < 0.5 * r0.metrics.T30[4], `T30 1k ${r0 && r0.metrics.T30[4]} -> ${r1 && r1.metrics.T30[4]}`);
+    delete S.customLib[id]; registerCustoms(); return `α 1k ${MATBY[id] ? MATBY[id].a[4] : ''} · T30@1k ${fmt(r0.metrics.T30[4])} → ${fmt(r1.metrics.T30[4])} s`;
+  });
+  await t('UI: all tabs and views switch without errors', () => { ['listen', 'analyse', 'challenge', 'verify', 'build'].forEach(setTab); ['plan', '3d', 'split'].forEach(setView); ok(errors.length === 0, errors.join('; ')); });
+  const pass = res.filter(r => r[0]).length; document.title = `Tests ${pass}/${res.length}`;
+  console.log(res.map(r => (r[0] ? 'PASS ' : 'FAIL ') + r[1] + ' — ' + r[2]).join('\n'));
+  window.__TESTS = res;
+}
+</script>
+</body>
+</html>

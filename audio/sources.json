@@ -1,0 +1,74 @@
+[
+ {
+  "id": "voice_opera",
+  "ko": "성악 (소프라노)",
+  "en": "Operatic voice",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 4.87
+ },
+ {
+  "id": "choir_pavane",
+  "ko": "3성부 합창 (파반느)",
+  "en": "Three-voice Pavane",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 12.0
+ },
+ {
+  "id": "bassoon",
+  "ko": "바로크 바순",
+  "en": "Baroque bassoon",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 12.0
+ },
+ {
+  "id": "viol",
+  "ko": "베이스 비올",
+  "en": "Bass viol",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 12.0
+ },
+ {
+  "id": "trumpet",
+  "ko": "내추럴 트럼펫 팡파르",
+  "en": "Natural trumpet fanfare",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 10.0
+ },
+ {
+  "id": "pistol",
+  "ko": "출발 신호 총성 (임펄스)",
+  "en": "Starter pistol (impulse)",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 0.56
+ },
+ {
+  "id": "speech",
+  "ko": "말소리 (영어 낭독)",
+  "en": "Speech",
+  "credit": "Racquetball-court IR study, Zenodo 10.5281/zenodo.15739328",
+  "license": "CC BY 4.0",
+  "seconds": 4.0
+ },
+ {
+  "id": "drum",
+  "ko": "드럼",
+  "en": "Drum kit",
+  "credit": "Racquetball-court IR study, Zenodo 10.5281/zenodo.15739328",
+  "license": "CC BY 4.0",
+  "seconds": 4.96
+ },
+ {
+  "id": "clap",
+  "ko": "박수 한 번",
+  "en": "Single handclap",
+  "credit": "Anechoic Handclaps, Aalto University, Zenodo 10.5281/zenodo.22892926",
+  "license": "CC BY 4.0",
+  "seconds": 0.13
+ }
+]
