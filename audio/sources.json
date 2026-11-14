@@ -1,11 +1,27 @@
 [
  {
-  "id": "voice_opera",
-  "ko": "성악 (소프라노)",
-  "en": "Operatic voice",
-  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
-  "license": "CC BY-SA 4.0",
-  "seconds": 4.87
+  "id": "speech_long_f",
+  "ko": "긴 말소리 (영어 낭독, 여성)",
+  "en": "Speech, read English (female)",
+  "credit": "CSTR VCTK Corpus (Yamagishi, Veaux, MacDonald 2019, doi:10.7488/ds/2645), via the clean test set of Valentini-Botinhao (2017), University of Edinburgh, doi:10.7488/ds/2117 — hemi-anechoic chamber",
+  "license": "CC BY 4.0",
+  "seconds": 45.3
+ },
+ {
+  "id": "speech_long_m",
+  "ko": "긴 말소리 (영어 낭독, 남성)",
+  "en": "Speech, read English (male)",
+  "credit": "CSTR VCTK Corpus (Yamagishi, Veaux, MacDonald 2019, doi:10.7488/ds/2645), via the clean test set of Valentini-Botinhao (2017), University of Edinburgh, doi:10.7488/ds/2117 — hemi-anechoic chamber",
+  "license": "CC BY 4.0",
+  "seconds": 47.9
+ },
+ {
+  "id": "singing",
+  "ko": "독창 (카로 미오 벤, 여성)",
+  "en": "Solo singing, \"Caro mio ben\"",
+  "credit": "VocalSet (Wilkins, Seetharaman, Wahl, Pardo, ISMIR 2018), Zenodo doi:10.5281/zenodo.1193957 — close-miked recording booth",
+  "license": "CC BY 4.0",
+  "seconds": 46.3
  },
  {
   "id": "choir_pavane",
@@ -13,7 +29,7 @@
   "en": "Three-voice Pavane",
   "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
   "license": "CC BY-SA 4.0",
-  "seconds": 12.0
+  "seconds": 60.0
  },
  {
   "id": "bassoon",
@@ -21,7 +37,15 @@
   "en": "Baroque bassoon",
   "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
   "license": "CC BY-SA 4.0",
-  "seconds": 12.0
+  "seconds": 59.4
+ },
+ {
+  "id": "bassoon2",
+  "ko": "고전 바순",
+  "en": "Classical bassoon",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 59.1
  },
  {
   "id": "viol",
@@ -29,7 +53,15 @@
   "en": "Bass viol",
   "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
   "license": "CC BY-SA 4.0",
-  "seconds": 12.0
+  "seconds": 54.3
+ },
+ {
+  "id": "trumpet_handel",
+  "ko": "헨델 트럼펫",
+  "en": "Handel trumpet piece",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 25.0
  },
  {
   "id": "trumpet",
@@ -37,15 +69,23 @@
   "en": "Natural trumpet fanfare",
   "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
   "license": "CC BY-SA 4.0",
-  "seconds": 10.0
+  "seconds": 12.6
  },
  {
-  "id": "pistol",
-  "ko": "출발 신호 총성 (임펄스)",
-  "en": "Starter pistol (impulse)",
+  "id": "drum_long",
+  "ko": "드럼 연주 (전자 드럼, 울림 없음)",
+  "en": "Drum kit groove (electronic kit, direct out)",
+  "credit": "Groove MIDI Dataset, Google LLC (Gillick, Roberts, Engel, Eck, Bamman, ICML 2019) — Roland TD-11 electronic kit, module output (no room)",
+  "license": "CC BY 4.0",
+  "seconds": 45.0
+ },
+ {
+  "id": "voice_opera",
+  "ko": "성악 (소프라노)",
+  "en": "Operatic voice",
   "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
   "license": "CC BY-SA 4.0",
-  "seconds": 0.56
+  "seconds": 4.9
  },
  {
   "id": "speech",
@@ -61,7 +101,7 @@
   "en": "Drum kit",
   "credit": "Racquetball-court IR study, Zenodo 10.5281/zenodo.15739328",
   "license": "CC BY 4.0",
-  "seconds": 4.96
+  "seconds": 5.0
  },
  {
   "id": "clap",
@@ -69,6 +109,14 @@
   "en": "Single handclap",
   "credit": "Anechoic Handclaps, Aalto University, Zenodo 10.5281/zenodo.22892926",
   "license": "CC BY 4.0",
-  "seconds": 0.13
+  "seconds": 0.1
+ },
+ {
+  "id": "pistol",
+  "ko": "출발 신호 총성 (임펄스)",
+  "en": "Starter pistol (impulse)",
+  "credit": "OpenAIR Anechoic Database (University of York, openairlib.net), via Zenodo 10.5281/zenodo.1186905",
+  "license": "CC BY-SA 4.0",
+  "seconds": 0.6
  }
 ]
